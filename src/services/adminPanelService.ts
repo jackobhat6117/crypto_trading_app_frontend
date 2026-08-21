@@ -25,6 +25,14 @@ export interface AdminUserSettings {
   allowWithdraw?: boolean
   allowTrade?: boolean
   noticeMessage?: string
+  isActive?: boolean
+}
+
+export interface WinTradeSlot {
+  timer: number
+  side: 'BUY' | 'SELL'
+  enabled: boolean
+  percent: number
 }
 
 export const siteSettingsService = {
@@ -251,8 +259,19 @@ export const adminUserService = {
     return response.data?.users ?? response.data?.data ?? []
   },
 
-  async adjustBalance(id: string, amount: number, operation: 'add' | 'subtract', note?: string) {
-    const response = await api.post(`/api/admin/users/${id}/balance`, { amount, operation, note })
+  async adjustBalance(
+    id: string,
+    amount: number,
+    operation: 'add' | 'subtract',
+    note?: string,
+    extras?: { logToDeposit?: boolean; logToWithdrawal?: boolean; notifyEmail?: boolean }
+  ) {
+    const response = await api.post(`/api/admin/users/${id}/balance`, {
+      amount,
+      operation,
+      note,
+      ...extras,
+    })
     return response.data
   },
 
@@ -272,13 +291,31 @@ export const adminUserService = {
   },
 
   // Returns a user token so an admin can reproduce an issue from the user's session.
-  async loginAs(id: string): Promise<{ token: string }> {
+  async loginAs(id: string): Promise<{ token: string; user?: { id: string; email: string; name?: string } }> {
     const response = await api.post(`/api/admin/users/${id}/login-as`)
     return response.data
   },
 
-  async loginAsByEmail(email: string): Promise<{ token: string }> {
+  async loginAsByEmail(email: string): Promise<{ token: string; user?: { id: string; email: string; name?: string } }> {
     const response = await api.post('/api/admin/login-as-user-by-email', { email })
+    return response.data
+  },
+
+  async updateProfile(
+    id: string,
+    payload: Partial<{ email: string; name: string; uniqueId: string; phone: string; isVerified: boolean }>
+  ) {
+    const response = await api.put(`/api/admin/users/${id}/profile`, payload)
+    return response.data
+  },
+
+  async getWinTrade(id: string): Promise<WinTradeSlot[]> {
+    const response = await api.get(`/api/admin/users/${id}/win-trade`)
+    return response.data?.configs ?? response.data?.data ?? []
+  },
+
+  async saveWinTrade(id: string, configs: WinTradeSlot[]) {
+    const response = await api.put(`/api/admin/users/${id}/win-trade`, { configs })
     return response.data
   },
 }

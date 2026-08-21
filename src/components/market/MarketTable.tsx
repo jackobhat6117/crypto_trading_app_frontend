@@ -64,7 +64,9 @@ function AssetRow({
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-semibold sm:text-sm">{asset.name}</div>
-          <div className="truncate text-xs text-gray-500 dark:text-gray-400">{asset.symbol}</div>
+          <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+            {type === 'metals' ? `${asset.symbol} • ${asset.unit || 'USD/oz'}` : asset.symbol}
+          </div>
         </div>
       </div>
       <div className="flex flex-col justify-center text-right">
@@ -130,7 +132,9 @@ function AssetCard({
           )}
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{asset.name}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">{asset.symbol}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {type === 'metals' ? `${asset.symbol} • ${asset.unit || 'USD/oz'}` : asset.symbol}
+            </div>
           </div>
         </div>
         <div className="ml-2 flex flex-shrink-0 flex-col items-end space-y-1">

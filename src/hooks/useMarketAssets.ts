@@ -57,6 +57,7 @@ export function useMarketAssets(type: AssetType) {
             change24h: m.change24h,
             high24h: m.high24h,
             pair: `${m.symbol}/USDT`,
+            unit: m.unit,
           }))
         }
         if (active) setAssets(data)
@@ -69,7 +70,7 @@ export function useMarketAssets(type: AssetType) {
     }
 
     load(false)
-    const interval = setInterval(() => load(true), 15000)
+    const interval = setInterval(() => load(true), type === 'metals' ? 1000 : 15000)
     return () => {
       active = false
       clearInterval(interval)
@@ -86,6 +87,7 @@ export interface FilterOptions {
   favourites?: string[]
   sortBy?: SortKey
   sortDirection?: SortDirection
+  preserveOrder?: boolean
 }
 
 export function filterAssets(
@@ -136,7 +138,9 @@ export function filterAssets(
       break
     case 'Hot':
     default:
-      filtered.sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+      if (!options.preserveOrder) {
+        filtered.sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+      }
       break
   }
   return filtered

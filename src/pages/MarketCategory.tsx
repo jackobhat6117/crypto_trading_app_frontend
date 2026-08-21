@@ -12,7 +12,7 @@ const TITLES: Record<AssetType, { title: string; subtitle: string }> = {
   crypto: { title: 'Crypto', subtitle: 'Cryptocurrency Markets' },
   stocks: { title: 'Stocks', subtitle: 'Global Equities' },
   forex: { title: 'Forex', subtitle: 'Currency Pairs' },
-  metals: { title: 'Precious Metals', subtitle: 'Gold, Silver & More' },
+  metals: { title: 'Precious Metals', subtitle: 'Gold, Silver, Platinum & More' },
 }
 
 const CATEGORY_FILTERS = ['Hot', 'Gainers', 'Losers', 'New', 'Alpha', 'Favourites']
@@ -31,7 +31,10 @@ export default function MarketCategory({ type }: MarketCategoryProps) {
   const { assets, loading } = useMarketAssets(type)
   const { toggle, isFavourite, favourites } = useFavourites(type)
 
-  const displayed = filterAssets(assets, filter, query, { favourites })
+  const displayed = filterAssets(assets, filter, query, {
+    favourites,
+    preserveOrder: type === 'metals' && filter === 'Hot',
+  })
   const { title, subtitle } = TITLES[type]
 
   return (

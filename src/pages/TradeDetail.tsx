@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BarChart3, ChevronLeft, Clock, MoreVertical } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { tradeService } from '../services/tradeService'
 import { useMarketAssets } from '../hooks/useMarketAssets'
-import { formatBalance, formatChange } from '../utils/format'
-import { AssetType } from '../types'
+import { formatBalance, formatChange, formatPrice } from '../utils/format'
+import { AssetType, Trade } from '../types'
 import SimpleOrderBook from '../components/trading/SimpleOrderBook'
 import FundingRate from '../components/trading/FundingRate'
 import clsx from 'clsx'
@@ -49,10 +49,16 @@ export default function TradeDetail() {
   const [tickSize, setTickSize] = useState(0.1)
   const [timeInForce, setTimeInForce] = useState<(typeof timeInForceOptions)[number]>('GTC')
   const [reduceOnly, setReduceOnly] = useState(false)
-  const [tab, setTab] = useState<'positions' | 'orders'>('positions')
+  const [tab, setTab] = useState<'positions' | 'orders' | 'history'>('positions')
+  const [positions, setPositions] = useState<Trade[]>([])
+  const [tick, setTick] = useState(Date.now())
+  const [livePrice, setLivePrice] = useState(0)
+  const seededPrice = useRef(false)
+  const feedPriceRef = useRef(0)
 
   const balance = user?.balance ?? 0
   const pair = symbol.toUpperCase()
+  const quotePrice = livePrice || asset?.price || 0
 
   const stepPrice = (direction: 1 | -1) => {
     const next = Math.max(0, (Number(price) || 0) + direction * tickSize)
@@ -65,12 +71,54 @@ export default function TradeDetail() {
   }
 
   const applyBbo = () => {
-    if (asset?.price) setPrice(String(asset.price))
+    if (quotePrice) setPrice(String(quotePrice))
   }
 
   useEffect(() => {
-    if (asset?.price) setPrice(String(asset.price))
+    seededPrice.current = false
+    setLivePrice(0)
+  }, [symbol])
+
+  useEffect(() => {
+    if (!asset?.price) return
+    feedPriceRef.current = asset.price
+    setLivePrice((prev) => (prev > 0 ? prev * 0.65 + asset.price * 0.35 : asset.price))
+    if (!seededPrice.current) {
+      setPrice(String(asset.price))
+      seededPrice.current = true
+    }
   }, [asset?.price])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setLivePrice((prev) => {
+        const base = prev > 0 ? prev : feedPriceRef.current
+        if (base <= 0) return prev
+        return Math.max(0.0001, base + (Math.random() - 0.5) * 0.001 * base)
+      })
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [symbol])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const list = await tradeService.getPositions()
+        if (!cancelled) setPositions(list)
+      } catch {
+        if (!cancelled) setPositions([])
+      }
+    }
+    void load()
+    const poll = window.setInterval(() => void load(), 2000)
+    const clock = window.setInterval(() => setTick(Date.now()), 1000)
+    return () => {
+      cancelled = true
+      window.clearInterval(poll)
+      window.clearInterval(clock)
+    }
+  }, [])
 
   const placeOrder = async (side: 'buy' | 'sell') => {
     if (!amount || Number(amount) <= 0) {
@@ -85,7 +133,7 @@ export default function TradeDetail() {
         type: assetType,
         side,
         orderType,
-        price: orderType === 'limit' ? Number(price) : undefined,
+        price: orderType === 'limit' ? Number(price) : quotePrice || undefined,
         amount: Number(amount),
         leverage,
         marginMode,
@@ -94,8 +142,9 @@ export default function TradeDetail() {
         reduceOnly,
       })
       await refreshUser()
-      const tradeId = result.trade?._id || result._id
-      if (tradeId) navigate(`/order/${tradeId}`, { state: { trade: result.trade || result } })
+      const payload = result.trade || result.data || result
+      const tradeId = payload?._id || payload?.id
+      if (tradeId) navigate(`/order/${tradeId}`, { state: { trade: payload } })
       else navigate('/history')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -131,6 +180,11 @@ export default function TradeDetail() {
                 <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs dark:bg-gray-700">Perp</span>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs sm:gap-3 sm:text-sm">
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {quotePrice
+                    ? `$${formatPrice(quotePrice, quotePrice < 1 ? 4 : 2)}`
+                    : '--'}
+                </span>
                 <span className={asset && asset.change24h >= 0 ? 'text-green-500' : 'text-red-500'}>
                   {asset ? formatChange(asset.change24h) : '--'}
                 </span>
@@ -188,7 +242,7 @@ export default function TradeDetail() {
             </select>
           </div>
           <div className="flex-1 overflow-y-auto p-1.5 sm:p-3">
-            <SimpleOrderBook symbol={`${pair}USDT`} currentPrice={asset?.price || 0} compact />
+            <SimpleOrderBook symbol={`${pair}USDT`} currentPrice={quotePrice} compact />
           </div>
         </aside>
 
@@ -367,7 +421,7 @@ export default function TradeDetail() {
             onClick={() => setTab('positions')}
             className={tab === 'positions' ? 'border-b-2 border-indigo-600 pb-1 font-medium text-indigo-600' : 'text-gray-500'}
           >
-            Positions (0)
+            Positions ({positions.length})
           </button>
           <button
             onClick={() => setTab('orders')}
@@ -379,9 +433,52 @@ export default function TradeDetail() {
             History
           </button>
         </div>
-        <p className="mt-4 text-center text-sm text-gray-500">
-          {tab === 'positions' ? 'No open positions' : 'No open orders'}
-        </p>
+        {tab === 'positions' && positions.length > 0 ? (
+          <div className="mt-3 space-y-2">
+            {positions.map((item) => {
+              const left = item.expiresAt
+                ? Math.max(0, Math.ceil((new Date(item.expiresAt).getTime() - tick) / 1000))
+                : item.timer || 0
+              const duration = item.timer || 60
+              const width = Math.max(4, Math.min(100, ((duration - left) / duration) * 100))
+              return (
+                <button
+                  key={item._id}
+                  onClick={() => navigate(`/order/${item._id}`, { state: { trade: item } })}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-left dark:border-gray-700 dark:bg-gray-900"
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">{item.symbol} / USDT</p>
+                      <p className="text-xs text-gray-500">
+                        {item.side === 'buy' ? 'Long' : 'Short'} • {item.leverage || 1}x
+                      </p>
+                    </div>
+                    <span className="rounded-lg bg-yellow-500 px-2 py-1 text-[10px] font-semibold text-white">PENDING</span>
+                  </div>
+                  <div className="mb-1 flex justify-between text-[11px] text-gray-500">
+                    <span>Time Remaining</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{left}s</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                    <div className="h-full bg-indigo-500" style={{ width: `${width}%` }} />
+                  </div>
+                  {(item.profitPercent || item.lossPercent) && (
+                    <p className="mt-2 text-[11px] text-gray-500">
+                      {item.profitPercent != null ? 'Win' : 'Loss'}{' '}
+                      {Math.abs(Number(item.profitPercent ?? item.lossPercent))}
+                      % of {item.amount} USDT
+                    </p>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="mt-4 text-center text-sm text-gray-500">
+            {tab === 'positions' ? 'No open positions' : 'No open orders'}
+          </p>
+        )}
       </div>
     </div>
   )

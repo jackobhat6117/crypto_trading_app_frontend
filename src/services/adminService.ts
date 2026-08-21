@@ -42,13 +42,20 @@ export interface ActivityItem {
 
 export interface AdminUser {
     id: string
+    _id?: string
     email: string
     name: string
+    uniqueId?: string | null
+    phone?: string | null
     role: string
     adminRole?: string
     isActive: boolean
     isVerified: boolean
+    allowTrade?: boolean
+    allowWithdraw?: boolean
+    noticeMessage?: string
     createdAt: string
+    lastLoginAt?: string | null
     wallets: Array<{ asset: string; balance: number; lockedBalance: number }>
     flags?: {
         tradingFrozen: boolean

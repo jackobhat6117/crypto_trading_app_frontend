@@ -71,6 +71,7 @@ export interface MarketAsset {
   low24h?: number
   image?: string
   pair?: string
+  unit?: string
 }
 
 export interface Trade {
@@ -85,7 +86,7 @@ export interface Trade {
   marginMode?: 'cross' | 'isolated'
   timer?: number
   status?: string
-  result?: 'win' | 'loss'
+  result?: 'win' | 'loss' | 'pending'
   profit?: number
   profitPercent?: number
   lossPercent?: number
@@ -94,6 +95,7 @@ export interface Trade {
   exitPrice?: number
   createdAt?: string
   closedAt?: string
+  expiresAt?: string
 }
 
 export interface SiteSettings {

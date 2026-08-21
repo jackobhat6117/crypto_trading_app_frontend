@@ -32,6 +32,7 @@ import MarketCategory from './pages/MarketCategory'
 import AdminLayout from './components/AdminLayout'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminUsers from './pages/AdminUsers'
+import AdminUserEdit from './pages/AdminUserEdit'
 import AdminTransactions from './pages/AdminTransactions'
 import AdminTrades from './pages/AdminTrades'
 import AdminRisk from './pages/AdminRisk'
@@ -107,6 +108,7 @@ function App() {
               <Route index element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="users/:id" element={<AdminUserEdit />} />
               <Route path="transactions" element={<AdminTransactions />} />
               <Route path="trades" element={<AdminTrades />} />
               <Route path="risk" element={<AdminRisk />} />

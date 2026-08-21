@@ -8,14 +8,17 @@ function asAssetType(value: unknown): AssetType {
 
 function normalizeTrade(raw: Record<string, unknown>): Trade {
   const profit = Number(raw.profit ?? 0)
+  const status = raw.status ? String(raw.status).toLowerCase() : undefined
   const result =
-    raw.result === 'win' || raw.result === 'loss'
+    raw.result === 'win' || raw.result === 'loss' || raw.result === 'pending'
       ? raw.result
-      : profit > 0
-        ? 'win'
-        : profit < 0
-          ? 'loss'
-          : undefined
+      : status === 'open' || status === 'pending'
+        ? 'pending'
+        : profit > 0
+          ? 'win'
+          : profit < 0
+            ? 'loss'
+            : undefined
   const side = raw.side === 'sell' || raw.direction === 'DOWN' ? 'sell' : 'buy'
 
   return {
@@ -29,7 +32,7 @@ function normalizeTrade(raw: Record<string, unknown>): Trade {
     leverage: raw.leverage != null ? Number(raw.leverage) : undefined,
     marginMode: raw.marginMode === 'isolated' ? 'isolated' : raw.marginMode === 'cross' ? 'cross' : undefined,
     timer: raw.timer != null ? Number(raw.timer) : undefined,
-    status: raw.status ? String(raw.status) : undefined,
+    status,
     result,
     profit,
     profitPercent: raw.profitPercent != null ? Number(raw.profitPercent) : undefined,
@@ -39,6 +42,7 @@ function normalizeTrade(raw: Record<string, unknown>): Trade {
     exitPrice: raw.exitPrice != null ? Number(raw.exitPrice) : undefined,
     createdAt: raw.createdAt ? String(raw.createdAt) : undefined,
     closedAt: raw.closedAt ? String(raw.closedAt) : undefined,
+    expiresAt: raw.expiresAt ? String(raw.expiresAt) : undefined,
   }
 }
 
@@ -59,7 +63,9 @@ export interface PlaceTradePayload {
 export const tradeService = {
   async placeTrade(payload: PlaceTradePayload) {
     const response = await api.post('/api/trades/place', payload)
-    return response.data
+    const raw = (response.data?.trade || response.data?.data || response.data) as Record<string, unknown>
+    const trade = normalizeTrade(raw)
+    return { ...response.data, trade }
   },
 
   async getHistory(): Promise<Trade[]> {
@@ -71,12 +77,14 @@ export const tradeService = {
 
   async getPositions(): Promise<Trade[]> {
     const response = await api.get('/api/trades/positions')
-    return response.data.positions || response.data.trades || []
+    const list = response.data.positions || response.data.trades || response.data.data || []
+    return (Array.isArray(list) ? list : []).map((item: Record<string, unknown>) => normalizeTrade(item))
   },
 
   async getTrade(id: string): Promise<Trade> {
     const response = await api.get(`/api/trades/${id}`)
-    return response.data.trade
+    const raw = response.data.trade || response.data.data || response.data
+    return normalizeTrade(raw as Record<string, unknown>)
   },
 
   async createTrade(payload: PlaceTradePayload | Record<string, unknown>) {

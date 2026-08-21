@@ -1,6 +1,7 @@
 import api from './api'
 import { Coin, Metal, SiteSettings } from '../types'
 import { FALLBACK_COINS, mergeCoinCatalog } from '../data/placeholderCoins'
+import { getBinanceQuotes } from './binanceQuotes'
 
 interface CoinGeckoMarket {
   id: string
@@ -159,9 +160,23 @@ export const coinService = {
         fetchHostedMarket(),
       ])
       const catalog = catalogResult.status === 'fulfilled' ? catalogResult.value : []
-      if (catalog.length > 0) return mergeCoinCatalog(catalog)
       const hosted = marketResult.status === 'fulfilled' ? marketResult.value : []
-      if (hosted.length > 0) return hosted
+      const quotes = await getBinanceQuotes()
+      const overlay = (coins: Coin[]) =>
+        coins.map((coin) => {
+          const live = quotes.get(`${coin.symbol}USDT`) || quotes.get(coin.symbol)
+          if (!live) return coin
+          return {
+            ...coin,
+            price: live.price,
+            change24h: live.change24h,
+            high24h: live.high24h ?? coin.high24h,
+            low24h: live.low24h ?? coin.low24h,
+          }
+        })
+
+      if (catalog.length > 0) return overlay(mergeCoinCatalog(catalog))
+      if (hosted.length > 0) return overlay(hosted)
     } catch {
       // Fall through to public feed / static catalog.
     }
@@ -177,21 +192,118 @@ export const coinService = {
   },
 }
 
+const METAL_CATALOG: Metal[] = [
+  { symbol: 'XAU', name: 'Gold', price: 4617.73, change24h: 0, unit: 'USD/oz' },
+  { symbol: 'XAG', name: 'Silver', price: 69.96, change24h: 0, unit: 'USD/oz' },
+  { symbol: 'XPT', name: 'Platinum', price: 1893, change24h: 0, unit: 'USD/oz' },
+  { symbol: 'XPD', name: 'Palladium', price: 1370, change24h: 0, unit: 'USD/oz' },
+  { symbol: 'XCU', name: 'Copper', price: 5.08, change24h: 0, unit: 'USD/lb' },
+  { symbol: 'XAL', name: 'Aluminum', price: 1.37, change24h: 0, unit: 'USD/lb' },
+  { symbol: 'XZN', name: 'Zinc', price: 1.84, change24h: 0, unit: 'USD/lb' },
+  { symbol: 'XNI', name: 'Nickel', price: 9.25, change24h: 0, unit: 'USD/lb' },
+  { symbol: 'XPB', name: 'Lead', price: 0.9233, change24h: 0, unit: 'USD/lb' },
+  { symbol: 'XTN', name: 'Tin', price: 13.78, change24h: 0, unit: 'USD/lb' },
+  { symbol: 'XIR', name: 'Iron Ore', price: 0.1398, change24h: 0, unit: 'USD/lb' },
+  { symbol: 'XST', name: 'Steel', price: 0.0926, change24h: 0, unit: 'USD/lb' },
+]
+
+const LIVE_METAL_SYMBOLS = new Set(['XAU', 'XAG', 'XPT', 'XPD', 'XCU'])
+
+function mergeMetalCatalog(incoming: Metal[]): Metal[] {
+  const bySymbol = new Map(incoming.map((metal) => [metal.symbol, metal]))
+  return METAL_CATALOG.map((base) => {
+    const live = bySymbol.get(base.symbol)
+    if (!live) return { ...base }
+    return {
+      ...base,
+      ...live,
+      unit: live.unit || base.unit,
+    }
+  })
+}
+
+function jitterIndustrial(metal: Metal): Metal {
+  if (LIVE_METAL_SYMBOLS.has(metal.symbol) || metal.price <= 0) return metal
+  const next = metal.price * (1 + (Math.random() - 0.5) * 0.0016)
+  return { ...metal, price: Number(next.toFixed(metal.price < 1 ? 4 : 2)) }
+}
+
+async function fetchLiveMetalQuotes(): Promise<Map<string, Partial<Metal>>> {
+  const quotes = new Map<string, Partial<Metal>>()
+  const goldApi = [
+    { local: 'XAG', remote: 'XAG' },
+    { local: 'XPT', remote: 'XPT' },
+    { local: 'XPD', remote: 'XPD' },
+    { local: 'XCU', remote: 'HG' },
+  ] as const
+
+  const [binance, spots] = await Promise.allSettled([
+    getBinanceQuotes(),
+    Promise.allSettled(
+      goldApi.map(async ({ local, remote }) => {
+        const response = await fetch(`https://api.gold-api.com/price/${remote}`)
+        if (!response.ok) throw new Error(remote)
+        const data = (await response.json()) as { price?: number }
+        return { symbol: local, price: Number(data.price) }
+      })
+    ),
+  ])
+
+  if (binance.status === 'fulfilled') {
+    const paxg = binance.value.get('PAXGUSDT')
+    if (paxg) quotes.set('XAU', paxg)
+  }
+
+  if (spots.status === 'fulfilled') {
+    for (const result of spots.value) {
+      if (result.status !== 'fulfilled' || !Number.isFinite(result.value.price) || result.value.price <= 0) continue
+      quotes.set(result.value.symbol, { price: result.value.price })
+    }
+  }
+
+  return quotes
+}
+
 export const metalService = {
   async getMetals(): Promise<Metal[]> {
+    let incoming: Metal[] = []
     try {
-      const response = await api.get('/api/metals')
+      const response = await api.get('/api/metals', {
+        params: { _t: Date.now(), _r: Math.random() },
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      })
       const list = response.data.metals || response.data.data || []
-      if (Array.isArray(list) && list.length > 0) return list
+      if (Array.isArray(list) && list.length > 0) incoming = list
     } catch {
-      // Fall through to placeholders.
+      // Fall through to live quotes / catalog.
     }
-    return [
-      { symbol: 'XAU', name: 'Gold', price: 4574.11, change24h: 2.46, unit: 'oz' },
-      { symbol: 'XAG', name: 'Silver', price: 24.18, change24h: 0.4, unit: 'oz' },
-      { symbol: 'XPT', name: 'Platinum', price: 913.7, change24h: 0.2, unit: 'oz' },
-      { symbol: 'XPD', name: 'Palladium', price: 1042.5, change24h: -0.3, unit: 'oz' },
-    ]
+
+    let catalog = mergeMetalCatalog(incoming)
+    const gold = catalog.find((metal) => metal.symbol === 'XAU')
+    const needsOverlay = !gold || gold.price < 3000
+
+    if (needsOverlay) {
+      try {
+        const live = await fetchLiveMetalQuotes()
+        if (live.size > 0) {
+          catalog = catalog.map((metal) => {
+            const quote = live.get(metal.symbol)
+            if (!quote) return metal
+            return {
+              ...metal,
+              price: quote.price ?? metal.price,
+              change24h: quote.change24h ?? metal.change24h,
+              high24h: quote.high24h ?? metal.high24h,
+              low24h: quote.low24h ?? metal.low24h,
+            }
+          })
+        }
+      } catch {
+        // Keep catalog prices.
+      }
+    }
+
+    return catalog.map(jitterIndustrial)
   },
 }
 

@@ -11,7 +11,7 @@ interface DashboardAssetListProps {
 
 function assetSubtitle(asset: MarketAsset, type: AssetType) {
   if (type === 'forex') return undefined
-  if (type === 'metals') return `${asset.symbol} • USD/oz`
+  if (type === 'metals') return `${asset.symbol} • ${asset.unit || 'USD/oz'}`
   return asset.symbol
 }
 
