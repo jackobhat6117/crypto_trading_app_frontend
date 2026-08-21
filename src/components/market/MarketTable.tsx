@@ -11,6 +11,8 @@ interface MarketTableProps {
   onSelect?: (asset: MarketAsset) => void
   /** Number of leading rows treated as the Popular group. */
   popularCount?: number
+  isFavourite?: (symbol: string) => boolean
+  onToggleFavourite?: (symbol: string) => void
 }
 
 function displayPrice(asset: MarketAsset, type: AssetType) {
@@ -25,13 +27,17 @@ function AssetRow({
   type,
   popular,
   lastPopular,
+  favourited,
   onClick,
+  onToggleFavourite,
 }: {
   asset: MarketAsset
   type: AssetType
   popular: boolean
   lastPopular: boolean
+  favourited?: boolean
   onClick: () => void
+  onToggleFavourite?: (symbol: string) => void
 }) {
   return (
     <div
@@ -42,7 +48,20 @@ function AssetRow({
         lastPopular && 'mb-2 border-b-2 border-indigo-200 dark:border-indigo-800'
       )}
     >
-      <div className="col-span-2 flex min-w-0 items-center">
+      <div className="col-span-2 flex min-w-0 items-center gap-2">
+        {onToggleFavourite && (
+          <button
+            type="button"
+            aria-label={favourited ? `Remove ${asset.symbol} from favourites` : `Add ${asset.symbol} to favourites`}
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleFavourite(asset.symbol)
+            }}
+            className="shrink-0 rounded p-1 text-gray-400 hover:text-yellow-500"
+          >
+            <Star className={clsx('h-4 w-4', favourited && 'fill-yellow-500 text-yellow-500')} />
+          </button>
+        )}
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-semibold sm:text-sm">{asset.name}</div>
           <div className="truncate text-xs text-gray-500 dark:text-gray-400">{asset.symbol}</div>
@@ -64,12 +83,16 @@ function AssetCard({
   asset,
   type,
   popular,
+  favourited,
   onClick,
+  onToggleFavourite,
 }: {
   asset: MarketAsset
   type: AssetType
   popular: boolean
+  favourited?: boolean
   onClick: () => void
+  onToggleFavourite?: (symbol: string) => void
 }) {
   return (
     <button
@@ -83,9 +106,32 @@ function AssetCard({
       )}
     >
       <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold">{asset.name}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">{asset.symbol}</div>
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          {onToggleFavourite && (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={favourited ? `Remove ${asset.symbol} from favourites` : `Add ${asset.symbol} to favourites`}
+              onClick={(event) => {
+                event.stopPropagation()
+                onToggleFavourite(asset.symbol)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onToggleFavourite(asset.symbol)
+                }
+              }}
+              className="mt-0.5 shrink-0 text-gray-400 hover:text-yellow-500"
+            >
+              <Star className={clsx('h-4 w-4', favourited && 'fill-yellow-500 text-yellow-500')} />
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold">{asset.name}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{asset.symbol}</div>
+          </div>
         </div>
         <div className="ml-2 flex flex-shrink-0 flex-col items-end space-y-1">
           <div className="text-sm font-semibold">{displayPrice(asset, type)}</div>
@@ -114,6 +160,8 @@ export default function MarketTable({
   type,
   onSelect,
   popularCount = 0,
+  isFavourite,
+  onToggleFavourite,
 }: MarketTableProps) {
   const navigate = useNavigate()
 
@@ -148,7 +196,9 @@ export default function MarketTable({
                 type={type}
                 popular={index < popularCount}
                 lastPopular={popularCount > 0 && index === popularCount - 1}
+                favourited={isFavourite?.(asset.symbol)}
                 onClick={() => handleClick(asset)}
+                onToggleFavourite={onToggleFavourite}
               />
             </div>
           ))}
@@ -165,7 +215,9 @@ export default function MarketTable({
             asset={asset}
             type={type}
             popular={index < popularCount}
+            favourited={isFavourite?.(asset.symbol)}
             onClick={() => handleClick(asset)}
+            onToggleFavourite={onToggleFavourite}
           />
         ))}
       </div>
