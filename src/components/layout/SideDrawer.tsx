@@ -15,6 +15,10 @@ import {
   Sun,
   X,
   LayoutGrid,
+  KeyRound,
+  ShieldCheck,
+  FileText,
+  HelpCircle,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -34,7 +38,8 @@ export default function SideDrawer({ open, onClose }: SideDrawerProps) {
   const { theme, toggleTheme } = useTheme()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
-  const activeLanguage = LANGUAGES.find((l) => l.code === getStoredLanguage()) ?? LANGUAGES[0]
+  const [languageCode, setLanguageCode] = useState(getStoredLanguage)
+  const activeLanguage = LANGUAGES.find((l) => l.code === languageCode) ?? LANGUAGES[0]
   const verified = isUserVerified(user)
 
   const go = (path: string) => {
@@ -112,19 +117,22 @@ export default function SideDrawer({ open, onClose }: SideDrawerProps) {
             {settingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
           {settingsOpen && (
-            <div className="ml-8 space-y-1 pb-2">
-              <button onClick={() => go('/settings/change-password')} className="block w-full rounded px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
-                Change Password
-              </button>
-              <button onClick={() => go('/settings/2fa')} className="block w-full rounded px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
-                Enable 2FA
-              </button>
-              <button onClick={() => go('/privacy-policy')} className="block w-full rounded px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
-                Privacy Policy
-              </button>
-              <button onClick={() => go('/help-support')} className="block w-full rounded px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
-                Help & Support
-              </button>
+            <div className="ml-2 space-y-1 pb-2 pl-2">
+              {[
+                { icon: KeyRound, label: 'Change Password', path: '/settings/change-password' },
+                { icon: ShieldCheck, label: 'Enable 2FA', path: '/settings/2fa' },
+                { icon: FileText, label: 'Privacy Policy', path: '/privacy-policy' },
+                { icon: HelpCircle, label: 'Help & Support', path: '/help-support' },
+              ].map(({ icon: Icon, label, path }) => (
+                <button
+                  key={path}
+                  onClick={() => go(path)}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-indigo-600" />
+                  {label}
+                </button>
+              ))}
             </div>
           )}
 
@@ -142,10 +150,11 @@ export default function SideDrawer({ open, onClose }: SideDrawerProps) {
             onClick={() => setLanguageOpen(true)}
             className="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
           >
-            <Globe className="h-5 w-5" />
+            <Globe className="h-5 w-5 text-indigo-600" />
             <span className="flex-1 text-left">Language</span>
-            <span className="text-xs text-gray-500">
-              {activeLanguage.flag} {activeLanguage.name}
+            <span className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="text-base leading-none">{activeLanguage.flag}</span>
+              {activeLanguage.name}
             </span>
           </button>
           <button
@@ -171,7 +180,12 @@ export default function SideDrawer({ open, onClose }: SideDrawerProps) {
           </button>
         </div>
       </aside>
-      {languageOpen && <LanguageModal onClose={() => setLanguageOpen(false)} />}
+      {languageOpen && (
+        <LanguageModal
+          onClose={() => setLanguageOpen(false)}
+          onSelected={(code) => setLanguageCode(code)}
+        />
+      )}
     </>
   )
 }

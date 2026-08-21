@@ -1,16 +1,84 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import {
+  ChevronRight,
+  KeyRound,
+  ShieldCheck,
+  BadgeCheck,
+  HelpCircle,
+  FileText,
+  Info,
+  ScrollText,
+  Mail,
+  Tag,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
 import { formatBalance } from '../utils/format'
 
-const SUPPORT_LINKS = [
-  { label: 'Help & Support', to: '/help-support' },
-  { label: 'Privacy Policy', to: '/privacy-policy' },
-  { label: 'About Us', to: '/' },
-  { label: 'Terms of Service', to: '/privacy-policy' },
+const SUPPORT_LINKS: { label: string; to: string; icon: LucideIcon }[] = [
+  { label: 'Help & Support', to: '/help-support', icon: HelpCircle },
+  { label: 'Privacy Policy', to: '/privacy-policy', icon: FileText },
+  { label: 'About Us', to: '/', icon: Info },
+  { label: 'Terms of Service', to: '/privacy-policy', icon: ScrollText },
 ]
+
+const SECURITY_LINKS: { label: string; path: string; icon: LucideIcon }[] = [
+  { label: 'Change Password', path: '/settings/change-password', icon: KeyRound },
+  { label: 'Two-Factor Authentication', path: '/settings/2fa', icon: ShieldCheck },
+  { label: 'KYC Verification', path: '/kyc/verify', icon: BadgeCheck },
+]
+
+function SettingsRow({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center justify-between border-b border-gray-100 py-3 text-left last:border-0 dark:border-gray-800"
+    >
+      <span className="flex items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+          <Icon className="h-4 w-4" />
+        </span>
+        {label}
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+    </button>
+  )
+}
+
+function SettingsLink({
+  icon: Icon,
+  label,
+  to,
+}: {
+  icon: LucideIcon
+  label: string
+  to: string
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center justify-between border-b border-gray-100 py-3 last:border-0 dark:border-gray-800"
+    >
+      <span className="flex items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+          <Icon className="h-4 w-4" />
+        </span>
+        {label}
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+    </Link>
+  )
+}
 
 export default function Settings() {
   const { user } = useAuth()
@@ -103,46 +171,43 @@ export default function Settings() {
       </form>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="mb-3 font-semibold">Security</h2>
-        <button
-          onClick={() => navigate('/settings/2fa')}
-          className="flex w-full items-center justify-between py-2 text-left"
-        >
-          Two-Factor Authentication
-          <ChevronRight className="h-4 w-4 text-gray-400" />
-        </button>
-        <button
-          onClick={() => navigate('/kyc/verify')}
-          className="flex w-full items-center justify-between py-2 text-left"
-        >
-          KYC Verification
-          <ChevronRight className="h-4 w-4 text-gray-400" />
-        </button>
-      </div>
-
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="mb-3 font-semibold">Support &amp; Information</h2>
-        {SUPPORT_LINKS.map((link) => (
-          <Link
-            key={link.label}
-            to={link.to}
-            className="flex items-center justify-between border-b border-gray-100 py-3 last:border-0 dark:border-gray-800"
-          >
-            {link.label}
-            <ChevronRight className="h-4 w-4 text-gray-400" />
-          </Link>
+        <h2 className="mb-1 font-semibold">Security</h2>
+        {SECURITY_LINKS.map((item) => (
+          <SettingsRow
+            key={item.path}
+            icon={item.icon}
+            label={item.label}
+            onClick={() => navigate(item.path)}
+          />
         ))}
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="mb-3 font-semibold">App Information</h2>
-        <div className="flex justify-between py-2 text-sm">
-          <span className="text-gray-500">Version</span>
-          <span>1.0.0</span>
+        <h2 className="mb-1 font-semibold">Support &amp; Information</h2>
+        {SUPPORT_LINKS.map((link) => (
+          <SettingsLink key={link.label} icon={link.icon} label={link.label} to={link.to} />
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="mb-1 font-semibold">App Information</h2>
+        <div className="flex items-center justify-between border-b border-gray-100 py-3 dark:border-gray-800">
+          <span className="flex items-center gap-3 text-sm text-gray-500">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+              <Tag className="h-4 w-4" />
+            </span>
+            Version
+          </span>
+          <span className="text-sm">1.0.0</span>
         </div>
-        <div className="flex justify-between py-2 text-sm">
-          <span className="text-gray-500">Support</span>
-          <a href="mailto:support@basetradedex.com" className="text-indigo-600">
+        <div className="flex items-center justify-between py-3">
+          <span className="flex items-center gap-3 text-sm text-gray-500">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+              <Mail className="h-4 w-4" />
+            </span>
+            Support
+          </span>
+          <a href="mailto:support@basetradedex.com" className="text-sm text-indigo-600">
             support@basetradedex.com
           </a>
         </div>
