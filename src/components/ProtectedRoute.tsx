@@ -1,25 +1,25 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
-export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+interface ProtectedRouteProps {
+  children: React.ReactNode
+}
+
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, loading } = useAuth()
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="h-12 w-12 rounded-full border-t-2 border-b-2 border-cyan-400 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
       </div>
     )
   }
 
-  // Check both state and localStorage as fallback
-  const token = localStorage.getItem('accessToken')
-  const authenticated = isAuthenticated || !!token
-
-  if (!authenticated) {
-    return <Navigate to="/login" replace />
+  const token = localStorage.getItem('token')
+  if (!isAuthenticated && !token) {
+    return <Navigate to="/signin" replace />
   }
 
   return <>{children}</>
 }
-

@@ -1,39 +1,57 @@
 import api from './api'
+import { AssetType, Trade } from '../types'
 
-export interface Trade {
-  id: string
-  asset: string
-  direction: 'UP' | 'DOWN'
+export interface PlaceTradePayload {
+  symbol: string
+  type: AssetType
+  side: 'buy' | 'sell'
+  orderType: 'limit' | 'market'
+  price?: number
   amount: number
-  entryPrice: number
-  exitPrice?: number
-  expiryTime: string
-  status: 'PENDING' | 'OPEN' | 'EXPIRED' | 'WON' | 'LOST' | 'CANCELLED'
-  profit?: number
-  createdAt: string
-}
-
-export interface CreateTradeData {
-  asset: string
-  direction: 'UP' | 'DOWN'
-  amount: number
-  duration?: number
+  leverage?: number
+  marginMode?: 'cross' | 'isolated'
+  timer?: number
+  timeInForce?: 'GTC' | 'IOC' | 'FOK'
+  reduceOnly?: boolean
 }
 
 export const tradeService = {
-  async createTrade(data: CreateTradeData): Promise<Trade> {
-    const response = await api.post<{ success: boolean; data: Trade }>('/trades', data)
-    return response.data.data
+  async placeTrade(payload: PlaceTradePayload) {
+    const response = await api.post('/api/trades/place', payload)
+    return response.data
   },
 
-  async getUserTrades(): Promise<Trade[]> {
-    const response = await api.get<{ success: boolean; data: Trade[] }>('/trades')
-    return response.data.data || []
+  async getHistory(): Promise<Trade[]> {
+    const response = await api.get('/api/trades/history')
+    return response.data.trades || response.data.history || []
   },
 
-  async getTradeById(tradeId: string): Promise<Trade> {
-    const response = await api.get<{ success: boolean; data: Trade }>(`/trades/${tradeId}`)
-    return response.data.data
+  async getPositions(): Promise<Trade[]> {
+    const response = await api.get('/api/trades/positions')
+    return response.data.positions || response.data.trades || []
+  },
+
+  async getTrade(id: string): Promise<Trade> {
+    const response = await api.get(`/api/trades/${id}`)
+    return response.data.trade
+  },
+
+  async createTrade(payload: PlaceTradePayload | Record<string, unknown>) {
+    const legacy = payload as Record<string, unknown>
+    if (legacy.asset && legacy.direction) {
+      return this.placeTrade({
+        symbol: String(legacy.asset),
+        type: 'crypto',
+        side: legacy.direction === 'UP' ? 'buy' : 'sell',
+        orderType: 'market',
+        amount: Number(legacy.amount),
+        timer: Number(legacy.duration || 60),
+      })
+    }
+    return this.placeTrade(payload as PlaceTradePayload)
+  },
+
+  async getUserTrades() {
+    return this.getHistory()
   },
 }
-

@@ -1,7 +1,8 @@
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom'
 import {
     LayoutDashboard, Users, CreditCard, Settings, LogOut, Shield,
-    AlertTriangle, BookOpen, TrendingUp
+    AlertTriangle, BookOpen, TrendingUp, Coins, UserCog, BadgeCheck,
+    MessageSquare, Bell, Globe
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useEffect, useState } from 'react'
@@ -17,17 +18,27 @@ const navItems = [
         section: 'Users & Finance', items: [
             { name: 'Users', href: '/admin/users', icon: Users },
             { name: 'Transactions', href: '/admin/transactions', icon: CreditCard },
+            { name: 'Sub-Admins', href: '/admin/subadmins', icon: UserCog },
         ]
     },
     {
         section: 'Trading', items: [
             { name: 'Trades & Orders', href: '/admin/trades', icon: TrendingUp },
+            { name: 'Coins', href: '/admin/coins', icon: Coins },
+        ]
+    },
+    {
+        section: 'Compliance & Support', items: [
+            { name: 'KYC', href: '/admin/kyc', icon: BadgeCheck },
+            { name: 'Customer Service', href: '/admin/support', icon: MessageSquare },
+            { name: 'Notify Users', href: '/admin/notify', icon: Bell },
         ]
     },
     {
         section: 'Risk & Control', items: [
             { name: 'Risk Monitor', href: '/admin/risk', icon: AlertTriangle },
             { name: 'System Config', href: '/admin/config', icon: Settings },
+            { name: 'Site Settings', href: '/admin/site-settings', icon: Globe },
             { name: 'Audit Log', href: '/admin/audit-log', icon: BookOpen },
         ]
     },

@@ -1,109 +1,77 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { authService, AuthResponse } from '../services/authService'
+import { authService } from '../services/authService'
+import { User } from '../types'
 
 interface AuthContextType {
-  user: AuthResponse['user'] | null
+  user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<AuthResponse['user']>
-  register: (name: string, email: string, password: string) => Promise<void>
-  googleLogin: (idToken: string) => Promise<AuthResponse['user']>
+  signin: (email: string, password: string) => Promise<User>
+  signup: (email: string, password: string, name?: string) => Promise<User>
   logout: () => Promise<void>
-  isAuthenticated: boolean
   refreshUser: () => Promise<void>
+  isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthResponse['user'] | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const initAuth = async () => {
-      const token = localStorage.getItem('accessToken')
-
+    const init = async () => {
+      const token = localStorage.getItem('token')
       if (token) {
         try {
-          // Try to fetch fresh user profile
-          const userProfile = await authService.getUserProfile()
-          setUser(userProfile)
-          localStorage.setItem('user', JSON.stringify(userProfile))
-        } catch (error) {
-          // Fallback to stored user if fetch fails
-          const storedUser = localStorage.getItem('user')
-          try {
-            if (storedUser && storedUser !== "undefined") {
-              setUser(JSON.parse(storedUser))
-            } else {
+          const profile = await authService.getMe()
+          setUser(profile)
+          localStorage.setItem('user', JSON.stringify(profile))
+        } catch {
+          const stored = localStorage.getItem('user')
+          if (stored) {
+            try {
+              setUser(JSON.parse(stored))
+            } catch {
               localStorage.removeItem('user')
+              localStorage.removeItem('token')
             }
-          } catch (parseError) {
-            console.error("Invalid user data in localStorage:", parseError)
-            localStorage.removeItem('user')
           }
         }
       }
-
       setLoading(false)
     }
-
-    initAuth()
+    init()
   }, [])
 
-
-  const login = async (email: string, password: string) => {
-    const response = await authService.login({ email, password })
-    const accessToken = response.accessToken.replace(/^["']|["']$/g, '')
-    const refreshToken = response.refreshToken.replace(/^["']|["']$/g, '')
-
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    localStorage.setItem('user', JSON.stringify(response.user))
-    setUser(response.user)
-    return response.user
+  const signin = async (email: string, password: string) => {
+    const { token, user: authUser } = await authService.signin({ email, password })
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(authUser))
+    setUser(authUser)
+    return authUser
   }
 
-  const register = async (name: string, email: string, password: string) => {
-    const response = await authService.register({ name, email, password })
-    const accessToken = response.accessToken.replace(/^["']|["']$/g, '')
-    const refreshToken = response.refreshToken.replace(/^["']|["']$/g, '')
-
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    localStorage.setItem('user', JSON.stringify(response.user))
-    setUser(response.user)
-  }
-
-  const googleLogin = async (idToken: string) => {
-    const response = await authService.googleLogin(idToken)
-    const accessToken = response.accessToken.replace(/^["']|["']$/g, '')
-    const refreshToken = response.refreshToken.replace(/^["']|["']$/g, '')
-
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    localStorage.setItem('user', JSON.stringify(response.user))
-    setUser(response.user)
-    return response.user
+  const signup = async (email: string, password: string, name?: string) => {
+    const { token, user: authUser } = await authService.signup({ email, password, name })
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(authUser))
+    setUser(authUser)
+    return authUser
   }
 
   const refreshUser = async () => {
-    try {
-      const userProfile = await authService.getUserProfile()
-      setUser(userProfile)
-      localStorage.setItem('user', JSON.stringify(userProfile))
-    } catch (error) {
-      console.error('Failed to refresh user:', error)
-    }
+    const profile = await authService.getMe()
+    setUser(profile)
+    localStorage.setItem('user', JSON.stringify(profile))
   }
 
   const logout = async () => {
     try {
       await authService.logout()
-    } catch (error) {
-      console.error('Logout error:', error)
+    } catch {
+      // ignore
     } finally {
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('token')
       localStorage.removeItem('user')
       setUser(null)
     }
@@ -114,9 +82,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         user,
         loading,
-        login,
-        register,
-        googleLogin,
+        signin,
+        signup,
         logout,
         refreshUser,
         isAuthenticated: !!user,
@@ -129,9 +96,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider')
   return context
 }
-

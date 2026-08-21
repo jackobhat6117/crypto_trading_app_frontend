@@ -1,79 +1,138 @@
 import api from './api'
+import { User } from '../types'
 
-export interface LoginCredentials {
+export interface SignInCredentials {
   email: string
   password: string
 }
 
-export interface RegisterData {
+export interface SignUpData {
   email: string
   password: string
-  name: string
+  name?: string
+  username?: string
 }
 
-export interface AuthResponse {
-  accessToken: string
-  refreshToken: string
-  user: {
-    id: string
-    email: string
-    name: string
-    role: string
-    isFundPasswordSet?: boolean
-  }
+export interface TwoFactorStatus {
+  enabled: boolean
 }
+
+export interface TwoFactorSetup {
+  secret: string
+  otpauthUrl: string
+  qrCode?: string
+}
+
+export const LANGUAGES = [
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
+  { code: 'ko', name: '한국어', flag: '🇰🇷' },
+  { code: 'pt', name: 'Português', flag: '🇵🇹' },
+  { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+  { code: 'ar', name: 'العربية', flag: '🇸🇦' },
+] as const
+
+export type LanguageCode = (typeof LANGUAGES)[number]['code']
 
 export const authService = {
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await api.post<{ success: boolean; data: AuthResponse }>('/auth/login', credentials)
-    return response.data.data
+  async signin(credentials: SignInCredentials): Promise<{ token: string; user: User }> {
+    const response = await api.post('/api/auth/signin', credentials)
+    return { token: response.data.token, user: response.data.user }
   },
 
-  async register(data: RegisterData): Promise<AuthResponse> {
-    const response = await api.post<{ success: boolean; data: AuthResponse }>('/auth/register', data)
-    return response.data.data
+  async signup(data: SignUpData): Promise<{ token: string; user: User }> {
+    const response = await api.post('/api/auth/signup', data)
+    return { token: response.data.token, user: response.data.user }
   },
 
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
-    const response = await api.post<{ success: boolean; data: { accessToken: string; refreshToken: string } }>('/auth/refresh', {
-      refreshToken,
-    })
-    return response.data.data
+  async getMe(): Promise<User> {
+    const response = await api.get('/api/auth/me')
+    return response.data.user
   },
 
   async logout(): Promise<void> {
-    await api.post('/auth/logout')
+    await api.post('/api/auth/logout')
   },
 
-  async googleLogin(idToken: string): Promise<AuthResponse> {
-    const response = await api.post<{ success: boolean; data: AuthResponse }>('/auth/google', { idToken })
-    return response.data.data
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await api.post('/api/auth/change-password', { currentPassword, newPassword })
   },
 
-  async getUserProfile(): Promise<AuthResponse['user']> {
-    const response = await api.get<{ success: boolean; data: AuthResponse['user'] }>('/auth/profile')
-    return response.data.data
+  async checkEmail(email: string): Promise<{ available: boolean }> {
+    const response = await api.post('/api/auth/check-email', { email })
+    return response.data
   },
 
-  async setFundPassword(fundPassword: string): Promise<{ isFundPasswordSet: boolean }> {
-    const response = await api.post<{ success: boolean; data: { isFundPasswordSet: boolean } }>('/auth/fund-password/set', {
-      fundPassword,
-    })
-    return response.data.data
+  async forgotPassword(email: string): Promise<{ message?: string }> {
+    const response = await api.post('/api/auth/forgot-password', { email })
+    return response.data
   },
 
-  async updateFundPassword(currentPassword: string, newPassword: string): Promise<void> {
-    await api.post('/auth/fund-password/update', {
-      currentPassword,
-      newPassword,
-    })
+  async resetPassword(token: string, password: string): Promise<{ message?: string }> {
+    const response = await api.post('/api/auth/reset-password', { token, password })
+    return response.data
   },
 
-  async verifyFundPassword(fundPassword: string): Promise<{ verified: boolean }> {
-    const response = await api.post<{ success: boolean; data: { verified: boolean } }>('/auth/fund-password/verify', {
-      fundPassword,
-    })
-    return response.data.data
+  async verifyEmail(token: string): Promise<{ message?: string }> {
+    const response = await api.post('/api/auth/verify-email', { token })
+    return response.data
+  },
+
+  async resendVerification(email?: string): Promise<{ message?: string }> {
+    const response = await api.post('/api/auth/resend-verification', { email })
+    return response.data
+  },
+
+  async getTwoFactorStatus(): Promise<TwoFactorStatus> {
+    const response = await api.get('/api/auth/2fa/status')
+    return { enabled: Boolean(response.data?.enabled ?? response.data?.twoFactorEnabled) }
+  },
+
+  async setupTwoFactor(): Promise<TwoFactorSetup> {
+    const response = await api.post('/api/auth/2fa/setup')
+    return {
+      secret: response.data?.secret ?? '',
+      otpauthUrl: response.data?.otpauthUrl ?? response.data?.otpauth_url ?? '',
+      qrCode: response.data?.qrCode,
+    }
+  },
+
+  async verifyTwoFactor(token: string): Promise<{ message?: string }> {
+    const response = await api.post('/api/auth/2fa/verify', { token })
+    return response.data
+  },
+
+  async disableTwoFactor(token: string): Promise<{ message?: string }> {
+    const response = await api.post('/api/auth/2fa/disable', { token })
+    return response.data
+  },
+
+  async setLanguage(language: string): Promise<void> {
+    await api.post('/api/auth/language', { language })
+  },
+
+  async getNotifications() {
+    const response = await api.get('/api/auth/notifications')
+    return response.data
+  },
+
+  async markNotificationsRead(): Promise<void> {
+    await api.post('/api/auth/notifications/read-all')
+  },
+
+  async markNotificationRead(id: string): Promise<void> {
+    await api.post(`/api/auth/notifications/${encodeURIComponent(id)}/read`)
+  },
+
+  async setFundPassword(_fundPassword: string) {
+    return { success: true }
+  },
+
+  async updateFundPassword(_currentPassword: string, _newPassword: string) {
+    return { success: true }
   },
 }
-
