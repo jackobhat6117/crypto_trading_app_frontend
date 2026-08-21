@@ -57,10 +57,46 @@ export const siteSettingsService = {
   },
 }
 
+function normalizeAdminCoin(raw: unknown): Coin | null {
+  if (!raw || typeof raw !== 'object') return null
+  const item = raw as Record<string, unknown>
+  const symbol = String(item.symbol || '').toUpperCase()
+  if (!symbol) return null
+  return {
+    _id: String(item._id || item.id || symbol.toLowerCase()),
+    symbol,
+    name: String(item.name || symbol),
+    image: item.image ? String(item.image) : undefined,
+    price: Number(item.price ?? 0),
+    change24h: Number(item.change24h ?? 0),
+    high24h: Number(item.high24h ?? item.price ?? 0),
+    low24h: Number(item.low24h ?? item.price ?? 0),
+    volume: item.volume != null ? Number(item.volume) : undefined,
+    marketCap: item.marketCap != null ? Number(item.marketCap) : undefined,
+    rank: item.rank != null ? Number(item.rank) : undefined,
+    isActive: item.isActive !== false,
+    minDeposit: item.minDeposit != null ? Number(item.minDeposit) : undefined,
+    maxDeposit: item.maxDeposit != null ? Number(item.maxDeposit) : undefined,
+    minWithdraw: item.minWithdraw != null ? Number(item.minWithdraw) : undefined,
+    maxWithdraw: item.maxWithdraw != null ? Number(item.maxWithdraw) : undefined,
+    address: item.address ? String(item.address) : undefined,
+    network: item.network ? String(item.network) : undefined,
+  }
+}
+
+export const DEPOSIT_ADDRESS_COINS = [
+  { symbol: 'BTC', name: 'Bitcoin', network: 'Bitcoin' },
+  { symbol: 'ETH', name: 'Ethereum', network: 'ERC20' },
+  { symbol: 'USDT', name: 'Tether', network: 'TRC20' },
+] as const
+
 export const adminCoinService = {
   async getAll(): Promise<Coin[]> {
     const response = await api.get('/api/coins/admin/all')
-    return response.data?.coins ?? response.data?.data ?? []
+    const list = response.data?.coins ?? response.data?.data ?? []
+    return (Array.isArray(list) ? list : [])
+      .map(normalizeAdminCoin)
+      .filter((coin): coin is Coin => Boolean(coin))
   },
 
   async create(payload: Partial<Coin>) {
@@ -76,6 +112,60 @@ export const adminCoinService = {
   async remove(id: string) {
     const response = await api.delete(`/api/coins/admin/${id}`)
     return response.data
+  },
+
+  async getDepositAddresses(): Promise<Coin[]> {
+    try {
+      const response = await api.get('/api/coins/admin/deposit-address')
+      const list = response.data?.coins ?? response.data?.data ?? []
+      const mapped = (Array.isArray(list) ? list : [])
+        .map(normalizeAdminCoin)
+        .filter((coin): coin is Coin => Boolean(coin))
+      if (mapped.length > 0) return mapped
+    } catch {
+      // Older APIs only expose the full coin catalog.
+    }
+    const coins = await this.getAll()
+    return DEPOSIT_ADDRESS_COINS.map((item) => {
+      const coin = coins.find((entry) => entry.symbol.toUpperCase() === item.symbol)
+      return (
+        coin || {
+          _id: item.symbol.toLowerCase(),
+          symbol: item.symbol,
+          name: item.name,
+          price: 0,
+          change24h: 0,
+          high24h: 0,
+          low24h: 0,
+          network: item.network,
+        }
+      )
+    })
+  },
+
+  async updateDepositAddress(symbol: string, payload: { address: string; network?: string }) {
+    const key = symbol.toUpperCase()
+    try {
+      const response = await api.put(`/api/coins/admin/deposit-address/${encodeURIComponent(key)}`, payload)
+      return response.data
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status
+      if (status !== 404 && status !== 405) throw error
+      const coins = await this.getAll()
+      const existing = coins.find((coin) => coin.symbol.toUpperCase() === key)
+      const defaults = DEPOSIT_ADDRESS_COINS.find((coin) => coin.symbol === key)
+      const body = {
+        symbol: key,
+        name: existing?.name || defaults?.name || key,
+        network: payload.network || existing?.network || defaults?.network,
+        address: payload.address,
+        isActive: existing?.isActive !== false,
+        minDeposit: existing?.minDeposit ?? 10,
+        minWithdraw: existing?.minWithdraw ?? 20,
+      }
+      if (existing?._id) return this.update(existing._id, body)
+      return this.create(body)
+    }
   },
 }
 

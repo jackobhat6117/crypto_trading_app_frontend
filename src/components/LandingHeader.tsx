@@ -1,55 +1,105 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { Menu, Moon, Sun, X } from 'lucide-react'
+import { useTheme } from '../contexts/ThemeContext'
+import BrandLogo from './BrandLogo'
+import clsx from 'clsx'
+
+const NAV_LINKS = [
+  { href: '#markets', label: 'Markets' },
+  { href: '#features', label: 'Features' },
+  { href: '#about', label: 'About' },
+]
 
 export default function LandingHeader() {
-  const [isScrolled, setIsScrolled] = useState(false)
+  const { theme, toggleTheme } = useTheme()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20)
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    const onScroll = () => setScrolled(window.scrollY > 12)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-black/80 backdrop-blur-xl py-3 shadow-lg shadow-cyan-500/10'
-          : 'bg-black/40 backdrop-blur-md py-4'
-      }`}
+    <nav
+      className={clsx(
+        'fixed top-0 z-50 w-full transition-all duration-300',
+        scrolled
+          ? 'border-b border-gray-200/70 bg-white/80 shadow-sm backdrop-blur-xl dark:border-white/5 dark:bg-gray-950/80'
+          : 'bg-transparent'
+      )}
     >
-      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/" className="flex items-center space-x-2 group">
-          <div className="relative">
-            <div className="absolute inset-0 bg-cyan-500 blur-xl opacity-50 group-hover:opacity-75 transition-opacity"></div>
-            <div className="relative text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
-              XCrypto
-            </div>
-          </div>
-        </Link>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+          <BrandLogo />
 
-        <nav className="hidden items-center space-x-6 md:flex">
-          <a href="#markets" className="text-gray-300 hover:text-indigo-400 transition-colors">Markets</a>
-          <a href="#features" className="text-gray-300 hover:text-indigo-400 transition-colors">Features</a>
-          <a href="#about" className="text-gray-300 hover:text-indigo-400 transition-colors">About</a>
+          <div className="hidden items-center space-x-8 md:flex">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium text-gray-600 transition hover:text-indigo-600 dark:text-gray-300 dark:hover:text-indigo-400"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <button
+              onClick={toggleTheme}
+              className="rounded-lg bg-gray-100 p-2 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="h-5 w-5 text-yellow-400" /> : <Moon className="h-5 w-5 text-gray-700" />}
+            </button>
+            <Link
+              to="/signin"
+              className="hidden px-3 py-2 text-sm font-medium text-gray-700 transition hover:text-indigo-600 dark:text-gray-300 dark:hover:text-indigo-400 sm:inline sm:px-4"
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/signup"
+              className="rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-indigo-500 hover:to-purple-500 sm:px-5 sm:text-sm"
+            >
+              Get Started
+            </Link>
+            <button
+              className="p-2 text-gray-700 hover:text-indigo-600 dark:text-gray-300 md:hidden"
+              aria-label="Toggle menu"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {menuOpen && (
+        <div className="border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-gray-950/95">
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              onClick={() => setMenuOpen(false)}
+              className="block py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              {link.label}
+            </a>
+          ))}
           <Link
             to="/signin"
-            className="text-gray-300 hover:text-indigo-400 transition-colors duration-200 font-medium"
+            onClick={() => setMenuOpen(false)}
+            className="mt-1 block py-2.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 sm:hidden"
           >
             Sign In
           </Link>
-          <Link
-            to="/signup"
-            className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-indigo-500/50 transition-all duration-300"
-          >
-            Get Started
-          </Link>
-        </nav>
-      </div>
-    </header>
+        </div>
+      )}
+    </nav>
   )
 }
-

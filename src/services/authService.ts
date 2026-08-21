@@ -1,4 +1,5 @@
 import api from './api'
+import { AuthTokens } from './sessionManager'
 import { User } from '../types'
 
 export interface SignInCredentials {
@@ -11,6 +12,7 @@ export interface SignUpData {
   password: string
   name?: string
   username?: string
+  phone?: string
 }
 
 export interface TwoFactorStatus {
@@ -38,20 +40,133 @@ export const LANGUAGES = [
 
 export type LanguageCode = (typeof LANGUAGES)[number]['code']
 
+export type NotificationType = 'success' | 'warning' | 'error' | 'info'
+
+export interface AppNotification {
+  _id: string
+  title: string
+  message: string
+  read: boolean
+  type: NotificationType
+  createdAt: string
+}
+
+function asNotificationType(value: unknown): NotificationType {
+  if (value === 'success' || value === 'warning' || value === 'error' || value === 'info') return value
+  return 'info'
+}
+
+function extractNotificationList(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload
+  if (!payload || typeof payload !== 'object') return []
+  const data = payload as Record<string, unknown>
+  const nested = data.data
+  const candidates = [data.notifications, data.items, nested]
+  if (nested && typeof nested === 'object') {
+    const inner = nested as Record<string, unknown>
+    candidates.push(inner.notifications, inner.items, inner.data)
+  }
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate
+  }
+  return []
+}
+
+function normalizeNotification(raw: unknown): AppNotification | null {
+  if (!raw || typeof raw !== 'object') return null
+  const item = raw as Record<string, unknown>
+  const id = String(item._id || item.id || '').trim()
+  if (!id) return null
+  return {
+    _id: id,
+    title: String(item.title || item.subject || 'Notification'),
+    message: String(item.message || item.body || item.content || ''),
+    read: Boolean(item.read ?? item.isRead),
+    type: asNotificationType(item.type),
+    createdAt: String(item.createdAt || item.created_at || new Date().toISOString()),
+  }
+}
+
+async function withMethodFallback(request: (method: 'put' | 'post') => Promise<unknown>) {
+  try {
+    await request('put')
+  } catch (error) {
+    const status = (error as { response?: { status?: number } })?.response?.status
+    if (status === 404 || status === 405) {
+      await request('post')
+      return
+    }
+    throw error
+  }
+}
+
+function decodeJwtExp(token: string): number | null {
+  try {
+    const segment = token.split('.')[1]
+    if (!segment) return null
+    const payload = JSON.parse(atob(segment.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
+function unwrapAuth(payload: Record<string, unknown> | undefined): AuthTokens {
+  const nested = (payload?.data && typeof payload.data === 'object' ? payload.data : payload) as
+    | Record<string, unknown>
+    | undefined
+  const accessToken = String(payload?.token || payload?.accessToken || nested?.token || nested?.accessToken || '')
+  const refreshToken = String(payload?.refreshToken || nested?.refreshToken || '').trim() || undefined
+  const expiresIn = Number(payload?.expiresIn || nested?.expiresIn || 0)
+  const user = (payload?.user || nested?.user || nested) as User | undefined
+  if (!accessToken || !user || typeof user !== 'object') {
+    throw new Error('Invalid authentication response')
+  }
+  const jwtExp = decodeJwtExp(accessToken)
+  const expiresAt = jwtExp ?? (expiresIn > 0 ? Date.now() + expiresIn * 1000 : null)
+  return {
+    accessToken: accessToken.trim(),
+    refreshToken,
+    expiresAt,
+    user,
+  }
+}
+
 export const authService = {
-  async signin(credentials: SignInCredentials): Promise<{ token: string; user: User }> {
-    const response = await api.post('/api/auth/signin', credentials)
-    return { token: response.data.token, user: response.data.user }
+  async signin(credentials: SignInCredentials): Promise<AuthTokens> {
+    try {
+      const response = await api.post('/api/auth/signin', credentials)
+      return unwrapAuth(response.data)
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status
+      if (status !== 404) throw error
+      const response = await api.post('/api/auth/login', credentials)
+      return unwrapAuth(response.data)
+    }
   },
 
-  async signup(data: SignUpData): Promise<{ token: string; user: User }> {
-    const response = await api.post('/api/auth/signup', data)
-    return { token: response.data.token, user: response.data.user }
+  async signup(data: SignUpData): Promise<AuthTokens> {
+    try {
+      const response = await api.post('/api/auth/signup', data)
+      return unwrapAuth(response.data)
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status
+      if (status !== 404) throw error
+      const response = await api.post('/api/auth/register', data)
+      return unwrapAuth(response.data)
+    }
   },
 
   async getMe(): Promise<User> {
-    const response = await api.get('/api/auth/me')
-    return response.data.user
+    try {
+      const response = await api.get('/api/auth/me')
+      return (response.data?.user ?? response.data?.data ?? response.data) as User
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status
+      if (status !== 404) throw error
+      const response = await api.get('/api/auth/profile')
+      return (response.data?.user ?? response.data?.data ?? response.data) as User
+    }
   },
 
   async logout(): Promise<void> {
@@ -115,17 +230,20 @@ export const authService = {
     await api.post('/api/auth/language', { language })
   },
 
-  async getNotifications() {
+  async getNotifications(): Promise<AppNotification[]> {
     const response = await api.get('/api/auth/notifications')
-    return response.data
+    return extractNotificationList(response.data)
+      .map(normalizeNotification)
+      .filter((item): item is AppNotification => Boolean(item))
   },
 
   async markNotificationsRead(): Promise<void> {
-    await api.post('/api/auth/notifications/read-all')
+    await withMethodFallback((method) => api[method]('/api/auth/notifications/read-all'))
   },
 
   async markNotificationRead(id: string): Promise<void> {
-    await api.post(`/api/auth/notifications/${encodeURIComponent(id)}/read`)
+    const path = `/api/auth/notifications/${encodeURIComponent(id)}/read`
+    await withMethodFallback((method) => api[method](path))
   },
 
   async setFundPassword(_fundPassword: string) {

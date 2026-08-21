@@ -14,13 +14,14 @@ import {
   Moon,
   Sun,
   X,
+  LayoutGrid,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useState } from 'react'
-import clsx from 'clsx'
 import LanguageModal, { getStoredLanguage } from './LanguageModal'
 import { LANGUAGES } from '../../services/authService'
+import { displayInitial, displayUserId, displayUsername, isUserVerified } from '../../utils/userDisplay'
 
 interface SideDrawerProps {
   open: boolean
@@ -34,6 +35,7 @@ export default function SideDrawer({ open, onClose }: SideDrawerProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
   const activeLanguage = LANGUAGES.find((l) => l.code === getStoredLanguage()) ?? LANGUAGES[0]
+  const verified = isUserVerified(user)
 
   const go = (path: string) => {
     navigate(path)
@@ -50,37 +52,44 @@ export default function SideDrawer({ open, onClose }: SideDrawerProps) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={onClose} />
-      <aside className="fixed left-0 top-0 z-50 flex h-full w-72 flex-col bg-white shadow-xl dark:bg-gray-900 md:hidden">
-        <div className="flex items-center justify-between border-b border-gray-200 p-4 dark:border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold text-white">
-              {(user?.name || user?.username || user?.email || 'U').charAt(0).toUpperCase()}
+      <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} />
+      <aside className="fixed left-0 top-0 z-50 flex h-full w-[min(20rem,88vw)] flex-col bg-white shadow-xl dark:bg-gray-900 sm:w-80">
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-500 px-4 pb-5 pt-4 text-white">
+          <div className="mb-5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <LayoutGrid className="h-5 w-5" />
+              <span className="text-xl font-semibold">Base</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-semibold text-gray-900 dark:text-white">
-                  {user?.name || user?.username || 'User'}
-                </p>
-                {user?.isVerified && (
-                  <span className="rounded-full bg-green-500 px-2 py-0.5 text-[10px] text-white">Verified</span>
+            <button onClick={onClose} className="rounded-md p-1 hover:bg-white/15" aria-label="Close menu">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20 text-lg font-bold">
+              {displayInitial(user)}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate text-lg font-semibold">{displayUsername(user)}</p>
+                {verified && (
+                  <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-medium text-white">
+                    Verified
+                  </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500">{user?.email}</p>
-              <p className="text-xs text-gray-400">ID: {user?.uniqueId || user?._id?.slice(-9)}</p>
+              <p className="truncate text-sm text-white/80">{user?.email}</p>
+              <p className="text-sm text-white/70">ID: {displayUserId(user)}</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-500">
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3">
           {[
             { icon: User, label: 'Personal Info', path: '/profile' },
             { icon: PlusCircle, label: 'Deposits', path: '/profile/deposits' },
-            { icon: MinusCircle, label: 'Withdrawals', path: '/profile/withdrawals' },
-            { icon: ArrowLeftRight, label: 'Transfers', path: '/profile/transfers' },
+            { icon: MinusCircle, label: 'Withdrawal History', path: '/profile/withdrawals' },
+            { icon: ArrowLeftRight, label: 'Transfer History', path: '/profile/transfers' },
           ].map(({ icon: Icon, label, path }) => (
             <button
               key={path}
@@ -121,7 +130,7 @@ export default function SideDrawer({ open, onClose }: SideDrawerProps) {
 
           <button
             onClick={() => go('/trade')}
-            className="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+            className="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
           >
             <BarChart3 className="h-5 w-5 text-indigo-600" />
             Futures
@@ -155,9 +164,7 @@ export default function SideDrawer({ open, onClose }: SideDrawerProps) {
           </button>
           <button
             onClick={handleLogout}
-            className={clsx(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
-            )}
+            className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500 py-3 font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
           >
             <LogOut className="h-5 w-5" />
             Logout

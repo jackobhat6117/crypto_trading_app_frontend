@@ -11,7 +11,7 @@ export default function AdminSignIn() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signin } = useAuth()
+  const { signin, logout } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,6 +21,7 @@ export default function AdminSignIn() {
     try {
       const user = await signin(email, password)
       if (!ADMIN_ROLES.includes(user.role?.toLowerCase() ?? '')) {
+        await logout()
         setError('Access denied. Admin or Sub-admin privileges required.')
         return
       }

@@ -18,15 +18,26 @@ function timeUntilNextSettlement(): string {
 
 interface FundingRateProps {
   rate?: number
+  compact?: boolean
 }
 
-export default function FundingRate({ rate = 0.00229 }: FundingRateProps) {
+export default function FundingRate({ rate = 0.00229, compact = false }: FundingRateProps) {
   const [countdown, setCountdown] = useState(timeUntilNextSettlement)
 
   useEffect(() => {
     const interval = setInterval(() => setCountdown(timeUntilNextSettlement()), 1000)
     return () => clearInterval(interval)
   }, [])
+
+  if (compact) {
+    return (
+      <span className="text-xs text-gray-700 dark:text-gray-300">
+        <span className={rate >= 0 ? 'text-green-500' : 'text-red-500'}>{rate.toFixed(5)}%</span>
+        <span className="text-gray-400"> / </span>
+        <span className="tabular-nums">{countdown}</span>
+      </span>
+    )
+  }
 
   return (
     <div className="text-right">

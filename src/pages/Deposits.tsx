@@ -1,321 +1,321 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { QRCodeSVG } from 'qrcode.react'
-import { Copy, Upload } from 'lucide-react'
-import { coinService } from '../services/marketDataService'
-import { DepositRecord, depositService } from '../services/financeService'
-import { Coin } from '../types'
-import { resolveMediaUrl } from '../utils/mediaUrl'
-import PageHeader from '../components/layout/PageHeader'
-import { formatBalance } from '../utils/format'
-import StatusBadge from '../components/admin/StatusBadge'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
+import { Calendar, ChevronLeft, Clock, Plus, X } from 'lucide-react'
+import { DepositRecord, depositService, FinanceStatus } from '../services/financeService'
+import { SAMPLE_DEPOSITS } from '../data/placeholderDeposits'
 
-type Stage = 'select' | 'submit'
+type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom'
+
+const DATE_FILTERS: { id: DateFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: 'Week' },
+  { id: 'month', label: 'Month' },
+  { id: 'custom', label: 'Custom' },
+]
+
+function startOfDay(date: Date) {
+  const next = new Date(date)
+  next.setHours(0, 0, 0, 0)
+  return next
+}
+
+function formatAmount(value: number) {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value)
+}
+
+function formatDate(value: string) {
+  const date = new Date(value)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${day}/${month}/${date.getFullYear()}`
+}
+
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString('en-GB', { hour12: false })
+}
+
+function formatDateTime(value: string) {
+  return `${formatDate(value)}, ${formatTime(value)}`
+}
+
+function displayStatus(status: FinanceStatus) {
+  if (status === 'approved' || status === 'completed') return 'Approved'
+  if (status === 'rejected') return 'Rejected'
+  if (status === 'cancelled') return 'Cancelled'
+  return 'Pending'
+}
+
+function statusClass(status: FinanceStatus) {
+  if (status === 'approved' || status === 'completed') {
+    return 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+  }
+  if (status === 'rejected' || status === 'cancelled') {
+    return 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+  }
+  return 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+}
+
+function inDateRange(createdAt: string, filter: DateFilter, from: string, to: string) {
+  const created = new Date(createdAt)
+  const today = startOfDay(new Date())
+  if (filter === 'today') return created >= today
+  if (filter === 'week') {
+    const week = new Date(today)
+    week.setDate(week.getDate() - 7)
+    return created >= week
+  }
+  if (filter === 'month') {
+    const month = new Date(today)
+    month.setMonth(month.getMonth() - 1)
+    return created >= month
+  }
+  if (filter === 'custom') {
+    if (from && created < startOfDay(new Date(from))) return false
+    if (to) {
+      const end = startOfDay(new Date(to))
+      end.setDate(end.getDate() + 1)
+      if (created >= end) return false
+    }
+  }
+  return true
+}
 
 export default function DepositsPage() {
-  const [tab, setTab] = useState<'deposit' | 'history'>('deposit')
-  const [coins, setCoins] = useState<Coin[]>([])
-  const [selected, setSelected] = useState<Coin | null>(null)
-  const [amount, setAmount] = useState('')
-  const [stage, setStage] = useState<Stage>('select')
-  const [deposit, setDeposit] = useState<DepositRecord | null>(null)
-  const [txHash, setTxHash] = useState('')
-  const [screenshot, setScreenshot] = useState<File | null>(null)
-  const [history, setHistory] = useState<DepositRecord[]>([])
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [copied, setCopied] = useState(false)
-  const pollRef = useRef<number>()
+  const navigate = useNavigate()
+  const [deposits, setDeposits] = useState<DepositRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [selected, setSelected] = useState<DepositRecord | null>(null)
 
   useEffect(() => {
-    coinService.getCoins().then(setCoins).catch(() => setCoins([]))
+    depositService
+      .getHistory()
+      .then((list) => setDeposits(list.length > 0 ? list : SAMPLE_DEPOSITS))
+      .catch(() => setDeposits(SAMPLE_DEPOSITS))
+      .finally(() => setLoading(false))
   }, [])
 
-  const loadHistory = useCallback(() => {
-    depositService.getHistory().then(setHistory).catch(() => setHistory([]))
-  }, [])
-
-  useEffect(() => {
-    if (tab === 'history') loadHistory()
-  }, [tab, loadHistory])
-
-  // A hosted-checkout deposit settles out of band, so poll until the provider confirms.
-  useEffect(() => {
-    if (!deposit?.paymentId) return
-    pollRef.current = window.setInterval(async () => {
-      try {
-        const status = await depositService.getPaymentStatus(deposit.paymentId!)
-        if (status?.status === 'completed' || status?.status === 'approved') {
-          setMessage('Payment confirmed! Your balance has been updated.')
-          window.clearInterval(pollRef.current)
-        }
-      } catch {
-        // Transient polling failures are expected; the next tick retries.
-      }
-    }, 10000)
-    return () => window.clearInterval(pollRef.current)
-  }, [deposit?.paymentId])
-
-  const minDeposit = selected?.minDeposit ?? 10
-  const maxDeposit = selected?.maxDeposit ?? 0
-
-  const createDeposit = async () => {
-    if (!selected) return
-    const value = Number(amount)
-    if (!value || value < minDeposit) {
-      setError(`Minimum deposit is ${minDeposit} USDT`)
-      return
-    }
-    if (maxDeposit > 0 && value > maxDeposit) {
-      setError(`Maximum deposit is ${maxDeposit} USDT`)
-      return
-    }
-    setError('')
-    setMessage('')
-    setLoading(true)
-    try {
-      const response = await depositService.create(selected._id, value)
-      const record: DepositRecord = response.deposit ?? response.payment ?? response
-      setDeposit(record)
-
-      const paymentUrl = record.paymentUrl ?? response.paymentUrl ?? response.invoice_url
-      if (paymentUrl) {
-        const popup = window.open(paymentUrl, '_blank')
-        if (!popup && window.confirm('Popup blocked. Redirect to payment page in this window?')) {
-          window.location.href = paymentUrl
-          return
-        }
-      }
-      setStage('submit')
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(detail || 'Error creating payment. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const submitDeposit = async () => {
-    if (!deposit) return
-    setError('')
-    setLoading(true)
-    try {
-      await depositService.submit(deposit._id, txHash || undefined, screenshot ?? undefined)
-      setMessage('Your deposit will be reviewed by admin after submission')
-      setStage('select')
-      setDeposit(null)
-      setAmount('')
-      setTxHash('')
-      setScreenshot(null)
-      loadHistory()
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(detail || 'Failed to submit deposit request')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const copyAddress = async () => {
-    const address = deposit?.address ?? selected?.address
-    if (!address) return
-    await navigator.clipboard.writeText(address)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const address = deposit?.address ?? selected?.address
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    return deposits.filter((item) => {
+      if (!inDateRange(item.createdAt, dateFilter, customFrom, customTo)) return false
+      if (!term) return true
+      return (
+        item.coin?.toLowerCase().includes(term) ||
+        item.description?.toLowerCase().includes(term) ||
+        String(item.amount).includes(term) ||
+        displayStatus(item.status).toLowerCase().includes(term) ||
+        item.address?.toLowerCase().includes(term) ||
+        item.txHash?.toLowerCase().includes(term)
+      )
+    })
+  }, [deposits, query, dateFilter, customFrom, customTo])
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Deposits" />
-
-      <div className="flex border-b border-gray-200 dark:border-gray-800">
-        {(['deposit', 'history'] as const).map((value) => (
-          <button
-            key={value}
-            onClick={() => setTab(value)}
-            className={`px-4 py-2 text-sm font-medium capitalize ${
-              tab === value ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'
-            }`}
-          >
-            {value === 'deposit' ? 'Deposit' : 'Deposit History'}
-          </button>
-        ))}
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="text-gray-500">
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+          <Plus className="h-5 w-5" />
+        </div>
+        <h1 className="text-xl font-bold">Deposit History</h1>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20">{error}</div>
-      )}
-      {message && (
-        <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-600 dark:bg-emerald-900/20">
-          {message}
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search deposits..."
+          className="mb-3 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-700"
+        />
+        <div className="flex flex-wrap gap-2">
+          {DATE_FILTERS.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setDateFilter(item.id)}
+              className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium sm:text-sm ${
+                dateFilter === item.id
+                  ? 'bg-green-600 text-white dark:bg-green-500'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
-      )}
-
-      {tab === 'history' ? (
-        history.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900">
-            No deposits found
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {history.map((record) => (
-              <div
-                key={record._id}
-                className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">
-                      {formatBalance(record.amount)} {record.coin ?? 'USDT'}
-                    </p>
-                    <p className="text-xs text-gray-500">{new Date(record.createdAt).toLocaleString()}</p>
-                  </div>
-                  <StatusBadge status={record.status} />
-                </div>
-                {record.txHash && (
-                  <p className="mt-2 break-all font-mono text-xs text-gray-500">{record.txHash}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )
-      ) : stage === 'select' ? (
-        <>
-          <div className="grid gap-3">
-            {coins.map((coin) => (
-              <button
-                key={coin._id}
-                onClick={() => setSelected(coin)}
-                className={`flex items-center justify-between rounded-xl border p-4 text-left ${selected?._id === coin._id ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-800'}`}
-              >
-                <div className="flex items-center gap-3">
-                  {coin.image && <img src={resolveMediaUrl(coin.image)} alt="" className="h-8 w-8 rounded-full" />}
-                  <div>
-                    <p className="font-medium">{coin.symbol}</p>
-                    <p className="text-xs text-gray-500">
-                      Min: {coin.minDeposit ?? 10}
-                      {coin.maxDeposit ? ` · Max: ${coin.maxDeposit}` : ''}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {selected && (
-            <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-              <label className="mb-1 block text-sm text-gray-500">Amount</label>
+        {dateFilter === 'custom' && (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <label className="text-xs text-gray-500">
+              From
               <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder={`Min ${minDeposit}`}
-                className="mb-4 w-full rounded-lg border px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
-              />
-              <button
-                disabled={loading}
-                onClick={createDeposit}
-                className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white disabled:opacity-60"
-              >
-                {loading ? 'Creating Payment...' : 'Continue to Payment'}
-              </button>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-            <h2 className="mb-1 font-semibold">Complete Your Payment</h2>
-            <p className="text-sm text-gray-500">
-              Send exactly {formatBalance(Number(amount))} {selected?.symbol} to the address below.
-            </p>
-
-            {address && (
-              <>
-                <div className="my-4 flex justify-center rounded-xl bg-white p-4">
-                  <QRCodeSVG value={address} size={180} />
-                </div>
-                <p className="mb-1 text-center text-xs text-gray-500">Scan QR Code to Deposit</p>
-                <label className="mb-1 mt-4 block text-sm text-gray-500">Deposit Address</label>
-                <button
-                  onClick={copyAddress}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-left font-mono text-xs dark:border-gray-700 dark:bg-gray-800"
-                >
-                  <span className="break-all">{address}</span>
-                  <Copy className="h-4 w-4 shrink-0 text-gray-400" />
-                </button>
-                {copied && <p className="mt-1 text-xs text-emerald-500">Copied to clipboard</p>}
-              </>
-            )}
-
-            {deposit?.network && (
-              <div className="mt-3 flex justify-between text-sm">
-                <span className="text-gray-500">Network</span>
-                <span className="font-medium">{deposit.network}</span>
-              </div>
-            )}
-            {deposit?.paymentId && (
-              <div className="mt-1 flex justify-between text-sm">
-                <span className="text-gray-500">Payment ID</span>
-                <span className="font-mono text-xs">{deposit.paymentId}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-            <h2 className="mb-3 font-semibold">Submit Deposit Request</h2>
-            <label className="mb-1 block text-sm text-gray-500">Transaction Hash</label>
-            <input
-              value={txHash}
-              onChange={(e) => setTxHash(e.target.value)}
-              placeholder="Paste the transaction hash"
-              className="mb-3 w-full rounded-lg border px-3 py-2 font-mono text-sm dark:border-gray-700 dark:bg-gray-800"
-            />
-
-            <label className="mb-1 block text-sm text-gray-500">Payment Screenshot</label>
-            <label className="mb-4 flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center dark:border-gray-700">
-              {screenshot ? (
-                <img src={URL.createObjectURL(screenshot)} alt="" className="h-24 rounded-lg object-cover" />
-              ) : (
-                <>
-                  <Upload className="h-6 w-6 text-gray-400" />
-                  <span className="text-sm text-gray-500">Tap to upload</span>
-                </>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)}
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
               />
             </label>
-
-            <p className="mb-3 text-xs text-gray-500">
-              Your deposit will be reviewed by admin after submission
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setStage('select')
-                  setDeposit(null)
-                }}
-                className="flex-1 rounded-xl border border-gray-200 py-3 font-semibold dark:border-gray-700"
-              >
-                Back
-              </button>
-              <button
-                disabled={loading}
-                onClick={submitDeposit}
-                className="flex-1 rounded-xl bg-indigo-600 py-3 font-semibold text-white disabled:opacity-60"
-              >
-                {loading ? 'Submitting...' : 'Submit'}
-              </button>
-            </div>
+            <label className="text-xs text-gray-500">
+              To
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
+              />
+            </label>
           </div>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-green-600 border-t-transparent" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="px-2 text-xs text-gray-500 sm:text-sm">
+            Showing {filtered.length} of {deposits.length} deposits
+          </p>
+          {filtered.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 py-16 text-center text-sm text-gray-500 dark:border-gray-700">
+              No deposits found
+            </div>
+          ) : (
+            filtered.map((item) => (
+              <button
+                key={item._id}
+                onClick={() => setSelected(item)}
+                className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-green-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-green-700 sm:p-5"
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 items-center space-x-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30 sm:h-12 sm:w-12">
+                      <Plus className="h-5 w-5 text-green-600 dark:text-green-400 sm:h-6 sm:w-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="mb-1 text-base font-bold sm:text-lg">
+                        <span className="text-green-600 dark:text-green-400">+{formatAmount(item.amount)}</span> USDT
+                      </p>
+                      <p className="truncate text-xs text-gray-500 sm:text-sm">
+                        {item.description || `Deposit ${item.amount} USDT via ${item.coin ?? 'USDT'} - Pending approval`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-shrink-0 flex-col items-end gap-2">
+                    <span className={`rounded px-2 py-1 text-xs font-medium ${statusClass(item.status)}`}>
+                      {displayStatus(item.status)}
+                    </span>
+                    <span className="whitespace-nowrap rounded-md bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      deposit
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-700 sm:gap-4">
+                  <span className="flex items-center space-x-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{formatDate(item.createdAt)}</span>
+                  </span>
+                  <span className="flex items-center space-x-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>{formatTime(item.createdAt)}</span>
+                  </span>
+                </div>
+              </button>
+            ))
+          )}
         </div>
       )}
+
+      {selected &&
+        createPortal(
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
+            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-gray-800">
+              <div className="flex items-center justify-between border-b border-gray-200 p-6 dark:border-gray-700">
+                <h3 className="text-lg font-bold">Deposit Details</h3>
+                <button
+                  onClick={() => setSelected(null)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-4 p-6">
+                <div>
+                  <p className="mb-1 text-sm text-gray-500">Amount</p>
+                  <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                    +{formatAmount(selected.amount)} USDT
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-1 text-sm text-gray-500">Type</p>
+                  <span className="rounded bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                    deposit
+                  </span>
+                </div>
+                <div>
+                  <p className="mb-1 text-sm text-gray-500">Description</p>
+                  <p className="text-sm">
+                    {selected.description ||
+                      `Deposit ${selected.amount} USDT via ${selected.coin ?? 'USDT'} - Pending approval`}
+                  </p>
+                </div>
+                {selected.address && (
+                  <div>
+                    <p className="mb-1 text-sm text-gray-500">Deposit Address</p>
+                    <p className="break-all rounded bg-gray-50 p-2 font-mono text-xs dark:bg-gray-700">
+                      {selected.address}
+                    </p>
+                  </div>
+                )}
+                {selected.txHash && (
+                  <div>
+                    <p className="mb-1 text-sm text-gray-500">Transaction ID</p>
+                    <p className="break-all rounded bg-gray-50 p-2 font-mono text-xs dark:bg-gray-700">
+                      {selected.txHash}
+                    </p>
+                  </div>
+                )}
+                {selected.balanceBefore != null && (
+                  <div>
+                    <p className="mb-1 text-sm text-gray-500">Balance Before</p>
+                    <p className="text-sm">{formatAmount(selected.balanceBefore)} USDT</p>
+                  </div>
+                )}
+                {selected.balanceAfter != null && (
+                  <div>
+                    <p className="mb-1 text-sm text-gray-500">Balance After</p>
+                    <p className="text-sm">{formatAmount(selected.balanceAfter)} USDT</p>
+                  </div>
+                )}
+                <div>
+                  <p className="mb-1 text-sm text-gray-500">Status</p>
+                  <span className={`rounded px-2 py-1 text-xs font-medium ${statusClass(selected.status)}`}>
+                    {displayStatus(selected.status)}
+                  </span>
+                </div>
+                <div>
+                  <p className="mb-1 text-sm text-gray-500">Created At</p>
+                  <p className="text-sm">{formatDateTime(selected.createdAt)}</p>
+                </div>
+                <button
+                  onClick={() => setSelected(null)}
+                  className="w-full rounded-lg bg-green-600 py-3 font-semibold text-white hover:bg-green-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

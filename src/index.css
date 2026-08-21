@@ -3,12 +3,39 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-dark-900 text-gray-100;
+    @apply bg-gray-50 text-gray-900 antialiased transition-colors dark:bg-gray-950 dark:text-gray-100;
   }
 }
 
 @layer utilities {
+  .landing-hero-title {
+    background-size: 200% 200%;
+    animation: landingGradient 8s ease infinite;
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pb-nav {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (min-width: 768px) {
+    .pb-nav {
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -58,9 +85,23 @@
   /* Firefox */
 }
 
+@keyframes landingGradient {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
 /* Custom Neon Scrollbar Styles */
 .custom-scrollbar {
   scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.55) rgba(229, 231, 235, 0.8);
+}
+
+html.dark .custom-scrollbar {
   scrollbar-color: rgba(34, 211, 238, 0.5) rgba(17, 24, 39, 0.3);
 }
 

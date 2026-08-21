@@ -12,6 +12,7 @@ export interface User {
   balance?: number
   phone?: string
   emailVerified?: boolean
+  kycStatus?: string
 }
 
 export interface Coin {
@@ -32,6 +33,7 @@ export interface Coin {
   minWithdraw?: number
   maxWithdraw?: number
   address?: string
+  network?: string
 }
 
 export interface Metal {
@@ -83,7 +85,11 @@ export interface Trade {
   marginMode?: 'cross' | 'isolated'
   timer?: number
   status?: string
+  result?: 'win' | 'loss'
   profit?: number
+  profitPercent?: number
+  lossPercent?: number
+  marginUsed?: number
   entryPrice?: number
   exitPrice?: number
   createdAt?: string

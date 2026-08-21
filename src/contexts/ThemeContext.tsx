@@ -5,27 +5,57 @@ type Theme = 'light' | 'dark'
 interface ThemeContextType {
   theme: Theme
   toggleTheme: () => void
+  setTheme: (theme: Theme) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
+function readStoredTheme(): Theme {
+  try {
+    return localStorage.getItem('theme') === 'light' ? 'light' : 'dark'
+  } catch {
+    return 'dark'
+  }
+}
+
+function applyTheme(theme: Theme) {
+  const root = document.documentElement
+  root.classList.toggle('dark', theme === 'dark')
+  root.style.colorScheme = theme
+  try {
+    localStorage.setItem('theme', theme)
+  } catch {
+    // Ignore storage failures (private mode, blocked storage).
+  }
+}
+
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const stored = localStorage.getItem('theme')
-    return stored === 'light' ? 'light' : 'dark'
+  const [theme, setThemeState] = useState<Theme>(() => {
+    const next = readStoredTheme()
+    applyTheme(next)
+    return next
   })
 
   useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'dark') root.classList.add('dark')
-    else root.classList.remove('dark')
-    localStorage.setItem('theme', theme)
+    applyTheme(theme)
   }, [theme])
 
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== 'theme') return
+      const next = event.newValue === 'light' ? 'light' : 'dark'
+      setThemeState(next)
+      applyTheme(next)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  const setTheme = (next: Theme) => setThemeState(next)
+  const toggleTheme = () => setThemeState((current) => (current === 'dark' ? 'light' : 'dark'))
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   )

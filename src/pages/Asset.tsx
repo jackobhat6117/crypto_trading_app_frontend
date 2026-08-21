@@ -7,6 +7,8 @@ import { coinService } from '../services/marketDataService'
 import { useEffect } from 'react'
 import { Coin } from '../types'
 import { resolveMediaUrl } from '../utils/mediaUrl'
+import AddFundsModal from '../components/AddFundsModal'
+import WithdrawFundsModal from '../components/WithdrawFundsModal'
 
 export default function AssetPage() {
   const { user } = useAuth()
@@ -14,6 +16,8 @@ export default function AssetPage() {
   const [hidden, setHidden] = useState(true)
   const [tab, setTab] = useState<'crypto' | 'account'>('crypto')
   const [coins, setCoins] = useState<Coin[]>([])
+  const [addFundsOpen, setAddFundsOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
 
   useEffect(() => {
     coinService.getCoins().then(setCoins).catch(() => setCoins([]))
@@ -34,13 +38,13 @@ export default function AssetPage() {
         <p className="mb-4 text-sm text-gray-500">Today&apos;s PNL {maskValue(hidden, '0.00')}</p>
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => navigate('/profile/deposits')}
+            onClick={() => setAddFundsOpen(true)}
             className="rounded-xl bg-yellow-500 py-3 font-semibold text-gray-900"
           >
             Add Funds
           </button>
           <button
-            onClick={() => navigate('/profile/withdrawals')}
+            onClick={() => setWithdrawOpen(true)}
             className="rounded-xl bg-gray-200 py-3 font-semibold dark:bg-gray-800"
           >
             Send
@@ -74,7 +78,7 @@ export default function AssetPage() {
               <div className="text-right">
                 <p className="font-semibold">{maskValue(hidden, formatBalance(balance))}</p>
                 <div className="mt-1 flex justify-end gap-2">
-                  <button onClick={() => navigate('/profile/deposits')} className="text-xs text-indigo-600">
+                  <button onClick={() => setAddFundsOpen(true)} className="text-xs text-indigo-600">
                     Earn
                   </button>
                   <button onClick={() => navigate('/trade/crypto/USDT')} className="text-xs text-indigo-600">
@@ -105,7 +109,7 @@ export default function AssetPage() {
                   <p className="text-xs text-gray-500">Today&apos;s PNL: {maskValue(hidden, '0.00')}</p>
                   <p className="text-xs text-gray-500">Average Price: {maskValue(hidden, '0.00')}</p>
                   <div className="mt-1 flex justify-end gap-2">
-                    <button onClick={() => navigate('/profile/deposits')} className="text-xs text-indigo-600">
+                    <button onClick={() => setAddFundsOpen(true)} className="text-xs text-indigo-600">
                       Earn
                     </button>
                     <button
@@ -125,6 +129,8 @@ export default function AssetPage() {
           Account overview
         </div>
       )}
+      <AddFundsModal open={addFundsOpen} onClose={() => setAddFundsOpen(false)} />
+      <WithdrawFundsModal open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
     </div>
   )
 }

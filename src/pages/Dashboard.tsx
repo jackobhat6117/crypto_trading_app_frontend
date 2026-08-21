@@ -1,13 +1,11 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { FilterTabs } from '../components/market/AssetTabs'
-import MarketTable from '../components/market/MarketTable'
+import DashboardMarketCard from '../components/dashboard/DashboardMarketCard'
 import { filterAssets, useMarketAssets } from '../hooks/useMarketAssets'
-import MarketSection from '../components/market/MarketSection'
 import { useFavourites } from '../hooks/useFavourites'
 import { formatBalance } from '../utils/format'
+import AddFundsModal from '../components/AddFundsModal'
 
 const news = [
   { title: 'Bitcoin Reaches New All-Time High Amid Institutional Adoption', source: 'CryptoNews', time: '2h ago' },
@@ -19,84 +17,102 @@ const news = [
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [filter, setFilter] = useState('Hot')
   const [hidden, setHidden] = useState(false)
+  const [addFundsOpen, setAddFundsOpen] = useState(false)
   const { assets, loading } = useMarketAssets('crypto')
-  const { toggle, isFavourite, favourites } = useFavourites('crypto')
+  const { assets: stocks, loading: stocksLoading } = useMarketAssets('stocks')
+  const { assets: forex, loading: forexLoading } = useMarketAssets('forex')
+  const { assets: metals, loading: metalsLoading } = useMarketAssets('metals')
+  const { favourites } = useFavourites('crypto')
   const displayed = filterAssets(assets, filter, '', { favourites }).slice(0, 5)
   const balance = user?.balance ?? 0
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-sm text-gray-500">Estimated Total Value (USDT)</p>
-          <button onClick={() => setHidden(!hidden)} className="text-gray-400">
+    <div className="space-y-4">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-sm text-gray-600 dark:text-gray-400">Estimated Total Value (USDT)</span>
+          <button
+            onClick={() => setHidden(!hidden)}
+            className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+            aria-label={hidden ? 'Show balance' : 'Hide balance'}
+          >
             {hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        <p className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
-          {hidden ? '******' : `$${formatBalance(balance)}`}
-        </p>
-        <button
-          onClick={() => navigate('/profile/deposits')}
-          className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white"
-        >
-          Add Funds
-        </button>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-2xl font-bold">
+            {hidden ? '******' : `$${formatBalance(balance)}`}
+          </span>
+          <button
+            onClick={() => setAddFundsOpen(true)}
+            className="rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            Add Funds
+          </button>
+        </div>
       </div>
 
-      <div>
-        <FilterTabs
-          active={filter}
-          onChange={setFilter}
-          filters={['Favourites', 'Hot', 'Alpha', 'New', 'Gainers', 'Losers']}
-        />
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-          </div>
-        ) : (
-          <MarketTable
-            assets={displayed}
-            type="crypto"
-            showRank={false}
-            isFavourite={isFavourite}
-            onToggleFavourite={toggle}
-          />
-        )}
-        <button
-          onClick={() => navigate(`/crypto/${filter.toLowerCase()}`)}
-          className="mt-3 w-full text-center text-sm font-medium text-indigo-600"
-        >
-          View More
-        </button>
-      </div>
+      <DashboardMarketCard
+        assets={displayed}
+        type="crypto"
+        loading={loading}
+        viewMorePath={`/crypto/${filter.toLowerCase()}`}
+        filter={filter}
+        onFilterChange={setFilter}
+        filters={['Favourites', 'Hot', 'Alpha', 'New', 'Gainers', 'Losers']}
+      />
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h3 className="mb-1 text-lg font-semibold">Discover</h3>
-        <p className="mb-4 text-sm text-gray-500">Crypto News & Updates</p>
-        <div className="space-y-4">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-200 p-4 dark:border-gray-700">
+          <h3 className="text-lg font-bold">Discover</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Crypto News & Updates</p>
+        </div>
+        <div className="space-y-3 p-4">
           {news.map((item) => (
-            <div key={item.title} className="border-b border-gray-100 pb-3 last:border-0 dark:border-gray-800">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-white">{item.title}</h4>
-              <p className="text-xs text-gray-500">
-                {item.source} · {item.time}
-              </p>
+            <div
+              key={item.title}
+              className="border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-700"
+            >
+              <h4 className="mb-1 text-sm font-semibold">{item.title}</h4>
+              <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>{item.source}</span>
+                <span>•</span>
+                <span>{item.time}</span>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      <MarketSection type="stocks" title="Stocks" viewMorePath="/stocks" />
-      <MarketSection type="forex" title="Forex" viewMorePath="/forex" />
-      <MarketSection
-        type="metals"
+      <DashboardMarketCard
+        title="Stocks"
+        assets={filterAssets(stocks, 'Hot', '').slice(0, 5)}
+        type="stocks"
+        loading={stocksLoading}
+        viewMorePath="/stocks"
+      />
+
+      <DashboardMarketCard
+        title="Forex"
+        assets={filterAssets(forex, 'Hot', '').slice(0, 5)}
+        type="forex"
+        loading={forexLoading}
+        viewMorePath="/forex"
+        nameColumnLabel="Pair"
+      />
+
+      <DashboardMarketCard
         title="Precious Metals"
         subtitle="Gold, Silver & More"
+        assets={filterAssets(metals, 'Hot', '').slice(0, 5)}
+        type="metals"
+        loading={metalsLoading}
         viewMorePath="/metals"
       />
+
+      <AddFundsModal open={addFundsOpen} onClose={() => setAddFundsOpen(false)} />
     </div>
   )
 }

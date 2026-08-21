@@ -9,7 +9,7 @@ export default function OrderDetailPage() {
   const trade = (location.state as { trade?: Trade })?.trade
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-4 sm:px-6">
       <div className="flex items-center gap-3">
         <button onClick={() => navigate('/history')} className="text-gray-500">←</button>
         <h1 className="text-xl font-bold">Order Details</h1>

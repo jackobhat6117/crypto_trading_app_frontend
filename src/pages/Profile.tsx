@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { KycStatus, kycService } from '../services/kycService'
 import { formatBalance } from '../utils/format'
+import { displayInitial, displayUserId, displayUsername, isUserVerified } from '../utils/userDisplay'
 
 const KYC_LABELS: Record<KycStatus, { label: string; tone: string }> = {
   not_submitted: { label: 'Not Verified', tone: 'text-gray-500' },
@@ -36,12 +37,19 @@ export default function ProfilePage() {
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div className="mb-6 flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-2xl font-bold text-white">
-            {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
+            {displayInitial(user)}
           </div>
           <div>
-            <h2 className="text-xl font-bold">{user?.name || user?.username || 'User'}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold">{displayUsername(user)}</h2>
+              {isUserVerified(user) && (
+                <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-medium text-white">
+                  Verified
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-500">{user?.email}</p>
-            <p className="text-xs text-gray-400">ID: {user?.uniqueId || user?._id}</p>
+            <p className="text-xs text-gray-400">ID: {displayUserId(user)}</p>
           </div>
         </div>
 

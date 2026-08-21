@@ -11,8 +11,8 @@ export function useMarketAssets(type: AssetType) {
   useEffect(() => {
     let active = true
 
-    const load = async () => {
-      setLoading(true)
+    const load = async (isRefresh = false) => {
+      if (!isRefresh) setLoading(true)
       try {
         let data: MarketAsset[] = []
         if (type === 'crypto') {
@@ -68,8 +68,8 @@ export function useMarketAssets(type: AssetType) {
       }
     }
 
-    load()
-    const interval = setInterval(load, 15000)
+    load(false)
+    const interval = setInterval(() => load(true), 15000)
     return () => {
       active = false
       clearInterval(interval)
@@ -98,7 +98,8 @@ export function filterAssets(
   const q = query.trim().toLowerCase()
   if (q) {
     filtered = filtered.filter(
-      (a) => a.name.toLowerCase().includes(q) || a.symbol.toLowerCase().includes(q)
+      (a) =>
+        (a.name || '').toLowerCase().includes(q) || (a.symbol || '').toLowerCase().includes(q)
     )
   }
 
@@ -111,9 +112,9 @@ export function filterAssets(
   if (options.sortBy) {
     const direction = options.sortDirection === 'asc' ? 1 : -1
     filtered.sort((a, b) => {
-      if (options.sortBy === 'name') return a.name.localeCompare(b.name) * direction
-      if (options.sortBy === 'price') return (a.price - b.price) * direction
-      return (a.change24h - b.change24h) * direction
+      if (options.sortBy === 'name') return (a.name || '').localeCompare(b.name || '') * direction
+      if (options.sortBy === 'price') return ((a.price || 0) - (b.price || 0)) * direction
+      return ((a.change24h || 0) - (b.change24h || 0)) * direction
     })
     return filtered
   }

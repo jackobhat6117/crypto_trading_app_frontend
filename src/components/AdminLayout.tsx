@@ -2,7 +2,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom'
 import {
     LayoutDashboard, Users, CreditCard, Settings, LogOut, Shield,
     AlertTriangle, BookOpen, TrendingUp, Coins, UserCog, BadgeCheck,
-    MessageSquare, Bell, Globe
+    MessageSquare, Bell, Globe, Wallet
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useEffect, useState } from 'react'
@@ -25,6 +25,7 @@ const navItems = [
         section: 'Trading', items: [
             { name: 'Trades & Orders', href: '/admin/trades', icon: TrendingUp },
             { name: 'Coins', href: '/admin/coins', icon: Coins },
+            { name: 'Deposit Wallets', href: '/admin/coins#deposit-wallets', icon: Wallet },
         ]
     },
     {
@@ -102,7 +103,11 @@ export default function AdminLayout() {
                             </p>
                             {group.items.map(item => {
                                 const Icon = item.icon
-                                const isActive = location.pathname.startsWith(item.href)
+                                const isActive =
+                                    item.href.includes('#')
+                                        ? location.pathname + location.hash === item.href
+                                        : location.pathname.startsWith(item.href) &&
+                                          !(item.href === '/admin/coins' && location.hash === '#deposit-wallets')
                                 return (
                                     <Link
                                         key={item.name}

@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { sessionManager } from '../services/sessionManager'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -16,9 +17,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
-  const token = localStorage.getItem('token')
-  if (!isAuthenticated && !token) {
-    return <Navigate to="/signin" replace />
+  if (!isAuthenticated || !sessionManager.hasAccessToken() || sessionManager.isSessionExpired()) {
+    const path = window.location.pathname || '/'
+    const isAdmin = path.startsWith('/admin') || path.startsWith('/subadmin')
+    return <Navigate to={isAdmin ? '/admin/signin' : '/signin'} replace />
   }
 
   return <>{children}</>

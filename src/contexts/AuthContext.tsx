@@ -1,12 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react'
 import { authService } from '../services/authService'
+import { sessionManager } from '../services/sessionManager'
+import { refreshAccessToken } from '../services/sessionRefresh'
 import { User } from '../types'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   signin: (email: string, password: string) => Promise<User>
-  signup: (email: string, password: string, name?: string) => Promise<User>
+  signup: (email: string, password: string, name?: string, phone?: string) => Promise<User>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
   isAuthenticated: boolean
@@ -14,65 +16,141 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll'] as const
+const SESSION_CHECK_MS = 60_000
 
-  useEffect(() => {
-    const init = async () => {
-      const token = localStorage.getItem('token')
-      if (token) {
-        try {
-          const profile = await authService.getMe()
-          setUser(profile)
-          localStorage.setItem('user', JSON.stringify(profile))
-        } catch {
-          const stored = localStorage.getItem('user')
-          if (stored) {
-            try {
-              setUser(JSON.parse(stored))
-            } catch {
-              localStorage.removeItem('user')
-              localStorage.removeItem('token')
-            }
-          }
-        }
-      }
-      setLoading(false)
-    }
-    init()
-  }, [])
+async function restoreSession(): Promise<User | null> {
+  if (!sessionManager.hasAccessToken()) return null
 
-  const signin = async (email: string, password: string) => {
-    const { token, user: authUser } = await authService.signin({ email, password })
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(authUser))
-    setUser(authUser)
-    return authUser
+  if (sessionManager.isSessionExpired()) {
+    sessionManager.clearSession('expired')
+    return null
   }
 
-  const signup = async (email: string, password: string, name?: string) => {
-    const { token, user: authUser } = await authService.signup({ email, password, name })
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(authUser))
-    setUser(authUser)
-    return authUser
+  if (sessionManager.isAccessTokenExpired() && sessionManager.getRefreshToken()) {
+    try {
+      const tokens = await refreshAccessToken(sessionManager.getRefreshToken()!)
+      sessionManager.saveSession(tokens)
+    } catch {
+      sessionManager.clearSession('expired')
+      return null
+    }
+  }
+
+  try {
+    const profile = await authService.getMe()
+    sessionManager.updateUser(profile)
+    return profile
+  } catch {
+    sessionManager.clearSession('expired')
+    return null
+  }
+}
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(() => sessionManager.getUser())
+  const [loading, setLoading] = useState(true)
+
+  const syncFromSession = useCallback(() => {
+    setUser(sessionManager.getUser())
+  }, [])
+
+  useEffect(() => {
+    let active = true
+
+    const init = async () => {
+      const profile = await restoreSession()
+      if (active) {
+        setUser(profile)
+        setLoading(false)
+      }
+    }
+
+    init()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    return sessionManager.subscribe((event) => {
+      if (event === 'cleared' || event === 'expired') {
+        setUser(null)
+        return
+      }
+      syncFromSession()
+    })
+  }, [syncFromSession])
+
+  useEffect(() => {
+    return sessionManager.initCrossTabSync((event) => {
+      if (event === 'cleared' || event === 'expired') {
+        setUser(null)
+        return
+      }
+      syncFromSession()
+    })
+  }, [syncFromSession])
+
+  useEffect(() => {
+    const onActivity = () => sessionManager.touchActivity()
+    ACTIVITY_EVENTS.forEach((eventName) => window.addEventListener(eventName, onActivity, { passive: true }))
+    return () => ACTIVITY_EVENTS.forEach((eventName) => window.removeEventListener(eventName, onActivity))
+  }, [])
+
+  useEffect(() => {
+    const interval = window.setInterval(async () => {
+      if (!sessionManager.hasAccessToken()) return
+
+      if (sessionManager.isSessionExpired()) {
+        sessionManager.clearSession('expired')
+        sessionManager.redirectToSignIn()
+        return
+      }
+
+      if (sessionManager.isAccessTokenExpired() && sessionManager.getRefreshToken()) {
+        try {
+          const tokens = await refreshAccessToken(sessionManager.getRefreshToken()!)
+          sessionManager.updateTokens(tokens)
+          if (tokens.user) sessionManager.updateUser(tokens.user)
+          syncFromSession()
+        } catch {
+          sessionManager.clearSession('expired')
+          sessionManager.redirectToSignIn()
+        }
+      }
+    }, SESSION_CHECK_MS)
+
+    return () => window.clearInterval(interval)
+  }, [syncFromSession])
+
+  const signin = async (email: string, password: string) => {
+    const tokens = await authService.signin({ email, password })
+    sessionManager.saveSession(tokens)
+    setUser(tokens.user)
+    return tokens.user
+  }
+
+  const signup = async (email: string, password: string, name?: string, phone?: string) => {
+    const tokens = await authService.signup({ email, password, name, phone })
+    sessionManager.saveSession(tokens)
+    setUser(tokens.user)
+    return tokens.user
   }
 
   const refreshUser = async () => {
     const profile = await authService.getMe()
+    sessionManager.updateUser(profile)
     setUser(profile)
-    localStorage.setItem('user', JSON.stringify(profile))
   }
 
   const logout = async () => {
     try {
       await authService.logout()
     } catch {
-      // ignore
+      // Server-side invalidation is best-effort; always clear local session.
     } finally {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      sessionManager.clearSession()
       setUser(null)
     }
   }
@@ -86,7 +164,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signup,
         logout,
         refreshUser,
-        isAuthenticated: !!user,
+        isAuthenticated: Boolean(user && sessionManager.hasAccessToken()),
       }}
     >
       {children}
