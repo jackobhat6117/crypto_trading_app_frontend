@@ -20,62 +20,62 @@ export interface PlaceSpotTradeData {
 
 export const spotTradeService = {
     async placeTrade(data: PlaceSpotTradeData): Promise<SpotTrade> {
-        const response = await api.post<{ success: boolean; data: SpotTrade }>('/spot/trade', data)
+        const response = await api.post<{ success: boolean; data: SpotTrade }>('/api/spot/trade', data)
         return response.data.data
     },
 
     async getTrades(): Promise<SpotTrade[]> {
-        const response = await api.get<{ success: boolean; data: SpotTrade[] }>('/spot/trades')
+        const response = await api.get<{ success: boolean; data: SpotTrade[] }>('/api/spot/trades')
         return response.data.data
     },
 
     async getPortfolio(): Promise<any> {
-        const response = await api.get<{ success: boolean; data: any }>('/spot/portfolio')
+        const response = await api.get<{ success: boolean; data: any }>('/api/spot/portfolio')
         return response.data.data
     },
 
     async placeStopOrder(data: { symbol: string, side: 'BUY' | 'SELL', quantity: number, triggerPrice: number }): Promise<any> {
-        const response = await api.post<{ success: boolean; data: any }>('/spot/stop-order', data)
+        const response = await api.post<{ success: boolean; data: any }>('/api/spot/stop-order', data)
         return response.data.data
     },
 
     async cancelStopOrder(id: string): Promise<any> {
-        const response = await api.delete<{ success: boolean; message: string }>(`/spot/stop-order/${id}`)
+        const response = await api.delete<{ success: boolean; message: string }>(`/api/spot/stop-order/${id}`)
         return response.data
     },
 
     async getStopOrders(symbol?: string): Promise<any[]> {
-        const response = await api.get<{ success: boolean; data: any[] }>('/spot/stop-orders', { params: { symbol } })
+        const response = await api.get<{ success: boolean; data: any[] }>('/api/spot/stop-orders', { params: { symbol } })
         return response.data.data
     },
 
     async placeLimitOrder(data: { symbol: string, side: 'BUY' | 'SELL', quantity: number, limitPrice: number }): Promise<any> {
-        const response = await api.post<{ success: boolean; data: any }>('/spot/limit-order', data)
+        const response = await api.post<{ success: boolean; data: any }>('/api/spot/limit-order', data)
         return response.data.data
     },
 
     async cancelLimitOrder(id: string): Promise<any> {
-        const response = await api.delete<{ success: boolean; message: string; data: any }>(`/spot/limit-order/${id}`)
+        const response = await api.delete<{ success: boolean; message: string; data: any }>(`/api/spot/limit-order/${id}`)
         return response.data.data
     },
 
     async getLimitOrders(symbol?: string): Promise<any[]> {
-        const response = await api.get<{ success: boolean; data: any[] }>('/spot/limit-orders', { params: { symbol } })
+        const response = await api.get<{ success: boolean; data: any[] }>('/api/spot/limit-orders', { params: { symbol } })
         return response.data.data
     },
 
     async placeStopLimitOrder(data: { symbol: string, side: 'BUY' | 'SELL', quantity: number, stopPrice: number, limitPrice: number }): Promise<any> {
-        const response = await api.post<{ success: boolean; data: any }>('/spot/stop-limit-order', data)
+        const response = await api.post<{ success: boolean; data: any }>('/api/spot/stop-limit-order', data)
         return response.data.data
     },
 
     async cancelStopLimitOrder(id: string): Promise<any> {
-        const response = await api.delete<{ success: boolean; message: string; data: any }>(`/spot/stop-limit-order/${id}`)
+        const response = await api.delete<{ success: boolean; message: string; data: any }>(`/api/spot/stop-limit-order/${id}`)
         return response.data.data
     },
 
     async getStopLimitOrders(symbol?: string): Promise<any[]> {
-        const response = await api.get<{ success: boolean; data: any[] }>('/spot/stop-limit-orders', { params: { symbol } })
+        const response = await api.get<{ success: boolean; data: any[] }>('/api/spot/stop-limit-orders', { params: { symbol } })
         return response.data.data
     }
 }

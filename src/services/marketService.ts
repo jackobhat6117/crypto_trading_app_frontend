@@ -98,7 +98,7 @@ export const marketService = {
     } catch (error) {
       console.error(`Failed to fetch price for ${asset}:`, error)
       // Fallback to backend API
-      const response = await api.get<{ success: boolean; data: { price: number } }>(`/market/${asset}/price`)
+      const response = await api.get<{ success: boolean; data: { price: number } }>(`/api/market/${asset}/price`)
       return response.data.data.price
     }
   },
@@ -126,7 +126,7 @@ export const marketService = {
     } catch (error) {
       console.error(`Failed to fetch market data for ${asset}:`, error)
       // Fallback to backend API
-      const response = await api.get<{ success: boolean; data: MarketData }>(`/market/${asset}/data`)
+      const response = await api.get<{ success: boolean; data: MarketData }>(`/api/market/${asset}/data`)
       return response.data.data
     }
   },

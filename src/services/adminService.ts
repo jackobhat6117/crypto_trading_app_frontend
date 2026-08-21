@@ -145,7 +145,7 @@ export interface Pagination {
 export const adminService = {
     // ── Dashboard ──────────────────────────────────────────────────────────────
     async getDashboardMetrics(): Promise<DashboardMetrics> {
-        const r = await api.get<{ success: boolean; data: DashboardMetrics }>('/admin/dashboard')
+        const r = await api.get<{ success: boolean; data: DashboardMetrics }>('/api/admin/dashboard')
         return r.data.data
     },
 
@@ -156,21 +156,21 @@ export const adminService = {
             : period === '7d'
                 ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
                 : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        const r = await api.get<{ success: boolean; data: PlatformStats }>('/admin/dashboard/stats', {
+        const r = await api.get<{ success: boolean; data: PlatformStats }>('/api/admin/dashboard/stats', {
             params: { startDate: from.toISOString(), endDate: now.toISOString() },
         })
         return r.data.data
     },
 
     async getRecentActivity(limit = 30): Promise<ActivityItem[]> {
-        const r = await api.get<{ success: boolean; data: ActivityItem[] }>('/admin/dashboard/activity', {
+        const r = await api.get<{ success: boolean; data: ActivityItem[] }>('/api/admin/dashboard/activity', {
             params: { limit },
         })
         return r.data.data
     },
 
     async getSystemHealth(): Promise<SystemHealth> {
-        const r = await api.get<{ success: boolean; data: SystemHealth }>('/admin/dashboard/health')
+        const r = await api.get<{ success: boolean; data: SystemHealth }>('/api/admin/dashboard/health')
         return r.data.data
     },
 
@@ -179,93 +179,93 @@ export const adminService = {
         page?: number; limit?: number; search?: string;
         tradingFrozen?: boolean; withdrawalsFrozen?: boolean
     }): Promise<{ users: AdminUser[]; pagination: Pagination }> {
-        const r = await api.get<{ success: boolean; data: AdminUser[]; pagination: Pagination }>('/admin/users', {
+        const r = await api.get<{ success: boolean; data: AdminUser[]; pagination: Pagination }>('/api/admin/users', {
             params: opts,
         })
         return { users: r.data.data, pagination: r.data.pagination }
     },
 
     async getUserDetail(id: string): Promise<AdminUser> {
-        const r = await api.get<{ success: boolean; data: AdminUser }>(`/admin/users/${id}`)
+        const r = await api.get<{ success: boolean; data: AdminUser }>(`/api/admin/users/${id}`)
         return r.data.data
     },
 
     async freezeTrading(id: string, reason: string): Promise<void> {
-        await api.post(`/admin/users/${id}/freeze-trading`, { reason })
+        await api.post(`/api/admin/users/${id}/freeze-trading`, { reason })
     },
 
     async unfreezeTrading(id: string): Promise<void> {
-        await api.post(`/admin/users/${id}/unfreeze-trading`)
+        await api.post(`/api/admin/users/${id}/unfreeze-trading`)
     },
 
     async freezeWithdrawals(id: string, reason: string): Promise<void> {
-        await api.post(`/admin/users/${id}/freeze-withdrawals`, { reason })
+        await api.post(`/api/admin/users/${id}/freeze-withdrawals`, { reason })
     },
 
     async unfreezeWithdrawals(id: string): Promise<void> {
-        await api.post(`/admin/users/${id}/unfreeze-withdrawals`)
+        await api.post(`/api/admin/users/${id}/unfreeze-withdrawals`)
     },
 
     async suspendUser(id: string, reason: string): Promise<void> {
-        await api.post(`/admin/users/${id}/suspend`, { reason })
+        await api.post(`/api/admin/users/${id}/suspend`, { reason })
     },
 
     async activateUser(id: string): Promise<void> {
-        await api.post(`/admin/users/${id}/activate`)
+        await api.post(`/api/admin/users/${id}/activate`)
     },
 
     async resetFundPassword(id: string): Promise<void> {
-        await api.delete(`/admin/users/${id}/fund-password`)
+        await api.delete(`/api/admin/users/${id}/fund-password`)
     },
 
     async adjustUserBalance(id: string, asset: string, amount: number, reason: string): Promise<void> {
-        await api.post(`/admin/users/${id}/adjust-balance`, { asset, amount, reason })
+        await api.post(`/api/admin/users/${id}/adjust-balance`, { asset, amount, reason })
     },
 
     async getUserTrades(id: string, params?: { page?: number; limit?: number }): Promise<{ data: SpotTrade[]; pagination: Pagination }> {
-        const r = await api.get<{ success: boolean; data: SpotTrade[]; pagination: Pagination }>(`/admin/users/${id}/trades`, { params })
+        const r = await api.get<{ success: boolean; data: SpotTrade[]; pagination: Pagination }>(`/api/admin/users/${id}/trades`, { params })
         return { data: r.data.data, pagination: r.data.pagination }
     },
 
     async getUserTransactions(id: string, params?: { page?: number; limit?: number; type?: string }): Promise<{ data: AdminTransaction[]; pagination: Pagination }> {
-        const r = await api.get<{ success: boolean; data: AdminTransaction[]; pagination: Pagination }>(`/admin/users/${id}/transactions`, { params })
+        const r = await api.get<{ success: boolean; data: AdminTransaction[]; pagination: Pagination }>(`/api/admin/users/${id}/transactions`, { params })
         return { data: r.data.data, pagination: r.data.pagination }
     },
 
     async addUserNote(id: string, note: string): Promise<void> {
-        await api.post(`/admin/users/${id}/notes`, { note })
+        await api.post(`/api/admin/users/${id}/notes`, { note })
     },
 
     // ── Transactions ──────────────────────────────────────────────────────────
     async getPendingDeposits(): Promise<AdminTransaction[]> {
-        const r = await api.get<{ success: boolean; data: AdminTransaction[] }>('/admin/deposits/pending')
+        const r = await api.get<{ success: boolean; data: AdminTransaction[] }>('/api/admin/deposits/pending')
         return r.data.data
     },
 
     async getPendingWithdrawals(): Promise<AdminTransaction[]> {
-        const r = await api.get<{ success: boolean; data: AdminTransaction[] }>('/admin/withdrawals/pending')
+        const r = await api.get<{ success: boolean; data: AdminTransaction[] }>('/api/admin/withdrawals/pending')
         return r.data.data
     },
 
     async approveDeposit(id: string, notes?: string): Promise<void> {
-        await api.post(`/admin/deposits/${id}/approve`, { notes })
+        await api.post(`/api/admin/deposits/${id}/approve`, { notes })
     },
 
     async rejectDeposit(id: string, reason: string): Promise<void> {
-        await api.post(`/admin/deposits/${id}/reject`, { reason })
+        await api.post(`/api/admin/deposits/${id}/reject`, { reason })
     },
 
     async approveWithdrawal(id: string, txHash?: string): Promise<void> {
-        await api.post(`/admin/withdrawals/${id}/approve`, { txHash })
+        await api.post(`/api/admin/withdrawals/${id}/approve`, { txHash })
     },
 
     async rejectWithdrawal(id: string, reason: string): Promise<void> {
-        await api.post(`/admin/withdrawals/${id}/reject`, { reason })
+        await api.post(`/api/admin/withdrawals/${id}/reject`, { reason })
     },
 
     // ── Trades & Orders ───────────────────────────────────────────────────────
     async getTradeSummary(): Promise<TradeSummary> {
-        const r = await api.get<{ success: boolean; data: TradeSummary }>('/admin/trades/summary')
+        const r = await api.get<{ success: boolean; data: TradeSummary }>('/api/admin/trades/summary')
         return r.data.data
     },
 
@@ -273,94 +273,94 @@ export const adminService = {
         page?: number; limit?: number; userId?: string;
         symbol?: string; side?: string; status?: string; from?: string; to?: string
     }): Promise<{ data: SpotTrade[]; pagination: Pagination }> {
-        const r = await api.get<{ success: boolean; data: SpotTrade[]; pagination: Pagination }>('/admin/trades/spot', { params })
+        const r = await api.get<{ success: boolean; data: SpotTrade[]; pagination: Pagination }>('/api/admin/trades/spot', { params })
         return { data: r.data.data, pagination: r.data.pagination }
     },
 
     async getLimitOrders(params?: {
         page?: number; limit?: number; userId?: string; symbol?: string; side?: string; status?: string
     }): Promise<{ data: OrderItem[]; pagination: Pagination }> {
-        const r = await api.get<{ success: boolean; data: OrderItem[]; pagination: Pagination }>('/admin/trades/limit-orders', { params })
+        const r = await api.get<{ success: boolean; data: OrderItem[]; pagination: Pagination }>('/api/admin/trades/limit-orders', { params })
         return { data: r.data.data, pagination: r.data.pagination }
     },
 
     async getStopOrders(params?: {
         page?: number; limit?: number; userId?: string; symbol?: string; side?: string; status?: string
     }): Promise<{ data: OrderItem[]; pagination: Pagination }> {
-        const r = await api.get<{ success: boolean; data: OrderItem[]; pagination: Pagination }>('/admin/trades/stop-orders', { params })
+        const r = await api.get<{ success: boolean; data: OrderItem[]; pagination: Pagination }>('/api/admin/trades/stop-orders', { params })
         return { data: r.data.data, pagination: r.data.pagination }
     },
 
     async getStopLimitOrders(params?: {
         page?: number; limit?: number; userId?: string; symbol?: string; side?: string; status?: string
     }): Promise<{ data: OrderItem[]; pagination: Pagination }> {
-        const r = await api.get<{ success: boolean; data: OrderItem[]; pagination: Pagination }>('/admin/trades/stop-limit-orders', { params })
+        const r = await api.get<{ success: boolean; data: OrderItem[]; pagination: Pagination }>('/api/admin/trades/stop-limit-orders', { params })
         return { data: r.data.data, pagination: r.data.pagination }
     },
 
     async cancelLimitOrder(id: string): Promise<void> {
-        await api.post(`/admin/trades/limit-orders/${id}/cancel`)
+        await api.post(`/api/admin/trades/limit-orders/${id}/cancel`)
     },
 
     async cancelStopOrder(id: string): Promise<void> {
-        await api.post(`/admin/trades/stop-orders/${id}/cancel`)
+        await api.post(`/api/admin/trades/stop-orders/${id}/cancel`)
     },
 
     // ── Risk ──────────────────────────────────────────────────────────────────
     async getExposure(): Promise<ExposureReport> {
-        const r = await api.get<{ success: boolean; data: ExposureReport }>('/admin/risk/exposure')
+        const r = await api.get<{ success: boolean; data: ExposureReport }>('/api/admin/risk/exposure')
         return r.data.data
     },
 
     async getOpenOrdersSummary() {
-        const r = await api.get<{ success: boolean; data: any }>('/admin/risk/open-orders')
+        const r = await api.get<{ success: boolean; data: any }>('/api/admin/risk/open-orders')
         return r.data.data
     },
 
     async getLargeTransactions(threshold = 10000) {
-        const r = await api.get<{ success: boolean; data: any }>('/admin/risk/large-transactions', {
+        const r = await api.get<{ success: boolean; data: any }>('/api/admin/risk/large-transactions', {
             params: { threshold },
         })
         return r.data.data
     },
 
     async getPlatformBalances(): Promise<PlatformBalance[]> {
-        const r = await api.get<{ success: boolean; data: PlatformBalance[] }>('/admin/risk/balances')
+        const r = await api.get<{ success: boolean; data: PlatformBalance[] }>('/api/admin/risk/balances')
         return r.data.data
     },
 
     // ── Config ────────────────────────────────────────────────────────────────
     async getSystemConfig(category?: string) {
-        const r = await api.get<{ success: boolean; data: any[] }>('/admin/config', { params: { category } })
+        const r = await api.get<{ success: boolean; data: any[] }>('/api/admin/config', { params: { category } })
         return r.data.data
     },
 
     async updateSystemConfig(key: string, value: string, category?: string): Promise<void> {
-        await api.put('/admin/config', { key, value, category })
+        await api.put('/api/admin/config', { key, value, category })
     },
 
     async pauseTrading(reason: string = 'Admin action'): Promise<void> {
-        await api.post('/admin/trading/pause', { reason })
+        await api.post('/api/admin/trading/pause', { reason })
     },
 
     async resumeTrading(): Promise<void> {
-        await api.post('/admin/trading/resume')
+        await api.post('/api/admin/trading/resume')
     },
 
     async toggleWithdrawals(enabled: boolean, reason: string = 'Admin action'): Promise<void> {
-        await api.post('/admin/config/toggle-withdrawals', { enabled, reason })
+        await api.post('/api/admin/config/toggle-withdrawals', { enabled, reason })
     },
 
     async toggleMaintenance(enabled: boolean, reason: string = 'Admin action'): Promise<void> {
-        await api.post('/admin/config/toggle-maintenance', { enabled, reason })
+        await api.post('/api/admin/config/toggle-maintenance', { enabled, reason })
     },
 
     async updateSpread(symbol: string, spread: number): Promise<void> {
-        await api.post('/admin/trading/spread', { symbol, spread })
+        await api.post('/api/admin/trading/spread', { symbol, spread })
     },
 
     async updateFee(fee: number): Promise<void> {
-        await api.post('/admin/trading/fee', { fee })
+        await api.post('/api/admin/trading/fee', { fee })
     },
 
     // ── Audit Logs ────────────────────────────────────────────────────────────
@@ -369,7 +369,7 @@ export const adminService = {
         adminId?: string; actionType?: string; targetType?: string;
         from?: string; to?: string
     }): Promise<{ data: AuditLog[]; pagination?: Pagination }> {
-        const r = await api.get<{ success: boolean; data: any }>('/admin/audit-logs', { params })
+        const r = await api.get<{ success: boolean; data: any }>('/api/admin/audit-logs', { params })
         // The existing service returns an object with logs array and pagination
         if (Array.isArray(r.data.data)) {
             return { data: r.data.data }
@@ -380,7 +380,7 @@ export const adminService = {
     async getTransactionHistory(params?: {
         page?: number; limit?: number; type?: string; status?: string; userId?: string
     }): Promise<{ data: AdminTransaction[]; pagination: Pagination }> {
-        const r = await api.get<{ success: boolean; data: AdminTransaction[]; pagination: Pagination }>('/admin/transactions/history', { params })
+        const r = await api.get<{ success: boolean; data: AdminTransaction[]; pagination: Pagination }>('/api/admin/transactions/history', { params })
         return { data: r.data.data, pagination: r.data.pagination }
     },
 }

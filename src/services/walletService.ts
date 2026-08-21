@@ -34,7 +34,7 @@ export interface WithdrawRequest {
 
 export const walletService = {
   async getBalances(): Promise<WalletBalance[]> {
-    const response = await api.get<{ success: boolean; data: any[] }>('/wallet/balances')
+    const response = await api.get<{ success: boolean; data: any[] }>('/api/wallet/balances')
     // Transform backend response to match expected format
     return (response.data.data || []).map((b: any) => ({
       asset: b.asset,
@@ -48,17 +48,17 @@ export const walletService = {
   },
 
   async getTransactions(): Promise<Transaction[]> {
-    const response = await api.get<{ success: boolean; data: Transaction[] }>('/wallet/transactions')
+    const response = await api.get<{ success: boolean; data: Transaction[] }>('/api/wallet/transactions')
     return response.data.data
   },
 
   async deposit(data: DepositRequest): Promise<Transaction> {
-    const response = await api.post<{ success: boolean; data: Transaction }>('/wallet/deposit', data)
+    const response = await api.post<{ success: boolean; data: Transaction }>('/api/wallet/deposit', data)
     return response.data.data
   },
 
   async withdraw(data: WithdrawRequest): Promise<Transaction> {
-    const response = await api.post<{ success: boolean; data: Transaction }>('/wallet/withdraw', data)
+    const response = await api.post<{ success: boolean; data: Transaction }>('/api/wallet/withdraw', data)
     return response.data.data
   },
 }
