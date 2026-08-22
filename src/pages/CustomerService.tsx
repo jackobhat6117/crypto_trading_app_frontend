@@ -1,52 +1,62 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { MessageCircle, Paperclip, Plus, Send, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronLeft, MessageCircle, Paperclip, Send, X } from 'lucide-react'
 import {
   TICKET_PRIORITIES,
   Ticket,
   TicketMessage,
   TicketPriority,
+  TicketStatus,
   supportService,
 } from '../services/supportService'
-import PageHeader from '../components/layout/PageHeader'
 import { resolveMediaUrl } from '../utils/mediaUrl'
 
 const POLL_MS = 5000
 
-const PRIORITY_STYLES: Record<TicketPriority, string> = {
-  low: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
-  medium: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300',
-  high: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300',
-  urgent: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+function statusLabel(status: TicketStatus) {
+  if (status === 'closed' || status === 'archived') return 'resolved'
+  return 'in progress'
 }
 
-function formatMessageTime(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  const now = new Date()
-  const sameDay = date.toDateString() === now.toDateString()
-  if (sameDay) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-  return date.toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+function statusClass(status: TicketStatus) {
+  return status === 'closed' || status === 'archived'
+    ? 'bg-emerald-500 text-white'
+    : 'bg-sky-500 text-white'
 }
 
-function formatTicketTime(value?: string) {
+function formatCardDate(value?: string) {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString([], {
-    month: 'short',
+  return date.toLocaleDateString('en-US')
+}
+
+function formatDayLabel(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
     day: 'numeric',
     year: 'numeric',
-    hour: '2-digit',
+  })
+}
+
+function formatBubbleTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+function dayKey(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toDateString()
 }
 
 function NewTicketModal({
@@ -64,11 +74,7 @@ function NewTicketModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!subject.trim()) {
-      setError('Please enter a subject')
-      return
-    }
-    if (!message.trim()) {
+    if (!subject.trim() || !message.trim()) {
       setError('Please fill in title and message')
       return
     }
@@ -84,34 +90,32 @@ function NewTicketModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md space-y-4 rounded-t-2xl bg-white p-5 dark:bg-gray-900 sm:rounded-2xl"
+        className="w-full max-w-md space-y-4 rounded-t-2xl bg-[#1a1d26] p-5 text-white sm:rounded-2xl"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Create New Ticket</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-gray-400">
+          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-400">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {error && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20">{error}</div>
-        )}
+        {error && <div className="rounded-lg bg-red-500/15 px-4 py-3 text-sm text-red-300">{error}</div>}
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Subject *</label>
+          <label className="mb-1 block text-sm text-slate-300">Subject *</label>
           <input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Briefly describe your issue"
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
+            className="w-full rounded-xl border border-white/10 bg-[#11141c] px-4 py-3 text-white outline-none focus:border-indigo-500"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Priority</label>
+          <label className="mb-1 block text-sm text-slate-300">Priority</label>
           <div className="grid grid-cols-4 gap-2">
             {TICKET_PRIORITIES.map((level) => (
               <button
@@ -120,8 +124,8 @@ function NewTicketModal({
                 onClick={() => setPriority(level)}
                 className={`rounded-xl border px-2 py-2 text-xs font-medium capitalize ${
                   priority === level
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20'
-                    : 'border-gray-200 text-gray-500 dark:border-gray-700'
+                    ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300'
+                    : 'border-white/10 text-slate-400'
                 }`}
               >
                 {level}
@@ -131,20 +135,20 @@ function NewTicketModal({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Message *</label>
+          <label className="mb-1 block text-sm text-slate-300">Message *</label>
           <textarea
             rows={4}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Tell us what happened"
-            className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
+            className="w-full resize-none rounded-xl border border-white/10 bg-[#11141c] px-4 py-3 text-white outline-none focus:border-indigo-500"
           />
         </div>
 
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
         >
           {busy ? 'Submitting...' : 'Create Ticket'}
         </button>
@@ -153,13 +157,11 @@ function NewTicketModal({
   )
 }
 
-function ChatView({
+function ChatPane({
   ticket,
-  onBack,
   onTicketChange,
 }: {
   ticket: Ticket
-  onBack: () => void
   onTicketChange: (ticket: Ticket) => void
 }) {
   const [messages, setMessages] = useState<TicketMessage[]>([])
@@ -203,11 +205,8 @@ function ChatView({
     const prevCount = messageCountRef.current
     messageCountRef.current = messages.length
     if (messages.length === 0) return
-
     const nearBottom =
-      !container ||
-      container.scrollHeight - container.scrollTop - container.clientHeight < 120
-
+      !container || container.scrollHeight - container.scrollTop - container.clientHeight < 140
     if (messages.length > prevCount && nearBottom) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
@@ -233,78 +232,90 @@ function ChatView({
     }
   }
 
+  const grouped = useMemo(() => {
+    const rows: Array<{ key: string; label: string; items: TicketMessage[] }> = []
+    for (const msg of messages) {
+      const key = dayKey(msg.createdAt)
+      const last = rows[rows.length - 1]
+      if (!last || last.key !== key) {
+        rows.push({ key, label: formatDayLabel(msg.createdAt), items: [msg] })
+      } else {
+        last.items.push(msg)
+      }
+    }
+    return rows
+  }, [messages])
+
   const readOnly = ticket.status === 'closed' || ticket.status === 'archived'
 
   return (
-    <div className="flex h-[calc(100vh-12rem)] flex-col">
-      <div className="flex items-center gap-3 border-b border-gray-200 pb-3 dark:border-gray-800">
-        <button onClick={onBack} aria-label="Back to tickets" className="text-gray-500">
-          ←
-        </button>
-        <div className="flex-1">
-          <p className="font-semibold">{ticket.subject}</p>
-          <p className="text-xs capitalize text-gray-500">
-            {ticket.status} · {ticket.priority} priority
-            {messages.length > 0 ? ` · ${messages.length} message${messages.length === 1 ? '' : 's'}` : ''}
-          </p>
-        </div>
-      </div>
-
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto py-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-3 py-4 sm:px-6">
         {messages.length === 0 ? (
-          <p className="py-10 text-center text-sm text-gray-500">
-            No messages yet. Send the first one below.
-          </p>
+          <p className="py-16 text-center text-sm text-slate-500">No messages yet. Send the first one below.</p>
         ) : (
-          messages.map((msg) => (
-            <div key={msg._id} className={`flex ${msg.isAdmin ? 'justify-start' : 'justify-end'}`}>
-              <div
-                className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                  msg.isAdmin
-                    ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
-                    : 'bg-indigo-600 text-white'
-                }`}
-              >
-                {msg.isAdmin && (
-                  <p className="mb-1 text-xs font-medium opacity-70">{msg.senderName || 'Support Team'}</p>
-                )}
-                {msg.attachment && (
-                  <a href={resolveMediaUrl(msg.attachment)} target="_blank" rel="noreferrer">
-                    <img src={resolveMediaUrl(msg.attachment)} alt="" className="mb-2 max-h-40 rounded-lg" />
-                  </a>
-                )}
-                {msg.message && <p className="whitespace-pre-wrap text-sm">{msg.message}</p>}
-                <p className="mt-1 text-right text-[10px] opacity-60">{formatMessageTime(msg.createdAt)}</p>
+          grouped.map((group) => (
+            <div key={group.key} className="space-y-4">
+              <div className="flex justify-center">
+                <span className="rounded-full bg-[#2a303c] px-3 py-1 text-[11px] text-slate-300">
+                  {group.label}
+                </span>
               </div>
+              {group.items.map((msg) => (
+                <div key={msg._id} className={`flex items-end gap-2 ${msg.isAdmin ? '' : 'justify-end'}`}>
+                  {msg.isAdmin && (
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                      {(msg.senderName || 'A').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[78%] rounded-2xl px-4 py-2.5 ${
+                      msg.isAdmin ? 'bg-[#2a303c] text-white' : 'bg-indigo-600 text-white'
+                    }`}
+                  >
+                    {msg.isAdmin && (
+                      <p className="mb-1 text-xs font-medium text-slate-300">{msg.senderName || 'Admin User'}</p>
+                    )}
+                    {msg.attachment && (
+                      <a href={resolveMediaUrl(msg.attachment)} target="_blank" rel="noreferrer">
+                        <img src={resolveMediaUrl(msg.attachment)} alt="" className="mb-2 max-h-40 rounded-lg" />
+                      </a>
+                    )}
+                    {msg.message && <p className="whitespace-pre-wrap text-sm">{msg.message}</p>}
+                    <p className="mt-1 text-[10px] text-white/60">{formatBubbleTime(msg.createdAt)}</p>
+                  </div>
+                  {!msg.isAdmin && (
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-semibold text-white">
+                      You
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           ))
         )}
         <div ref={bottomRef} />
       </div>
 
-      {error && <p className="pb-2 text-sm text-red-600">{error}</p>}
+      {error && <p className="px-4 pb-2 text-sm text-red-400">{error}</p>}
 
       {readOnly ? (
-        <p className="border-t border-gray-200 pt-3 text-center text-sm text-gray-500 dark:border-gray-800">
-          This ticket is {ticket.status}. Your full conversation is saved above. Create a new ticket if you need
-          more help.
+        <p className="border-t border-white/5 px-4 py-4 text-center text-sm text-slate-500">
+          This ticket is {statusLabel(ticket.status)}. Create a new ticket if you need more help.
         </p>
       ) : (
-        <form onSubmit={send} className="border-t border-gray-200 pt-3 dark:border-gray-800">
+        <form onSubmit={send} className="border-t border-white/5 px-3 py-3 sm:px-4">
           {attachment && (
-            <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
+            <div className="mb-2 flex items-center gap-2 text-xs text-slate-400">
               <Paperclip className="h-3 w-3" />
               {attachment.name}
-              <button type="button" onClick={() => setAttachment(null)} className="text-red-500">
+              <button type="button" onClick={() => setAttachment(null)} className="text-red-400">
                 remove
               </button>
             </div>
           )}
           <div className="flex items-center gap-2">
-            <label
-              aria-label="Attach file"
-              className="cursor-pointer rounded-xl border border-gray-200 p-3 text-gray-400 dark:border-gray-700"
-            >
+            <label aria-label="Attach file" className="cursor-pointer p-2 text-slate-400 hover:text-white">
               <Paperclip className="h-5 w-5" />
               <input
                 type="file"
@@ -317,15 +328,15 @@ function ChatView({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Type your message..."
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900"
+              className="flex-1 rounded-full border border-white/10 bg-[#11141c] px-4 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-indigo-500"
             />
             <button
               type="submit"
               disabled={sending}
               aria-label="Send message"
-              className="rounded-xl bg-indigo-600 p-3 text-white hover:bg-indigo-700 disabled:opacity-60"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-60"
             >
-              <Send className="h-5 w-5" />
+              <Send className="h-4 w-4" />
             </button>
           </div>
         </form>
@@ -335,6 +346,7 @@ function ChatView({
 }
 
 export default function CustomerServicePage() {
+  const navigate = useNavigate()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [active, setActive] = useState<Ticket | null>(null)
@@ -344,7 +356,12 @@ export default function CustomerServicePage() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      setTickets(await supportService.getTickets())
+      const list = await supportService.getTickets()
+      setTickets(list)
+      setActive((current) => {
+        if (!current) return current
+        return list.find((item) => item._id === current._id) ?? current
+      })
       setError('')
     } catch {
       if (!silent) setError('Failed to load tickets')
@@ -359,103 +376,100 @@ export default function CustomerServicePage() {
     return () => window.clearInterval(interval)
   }, [load])
 
-  const handleBack = () => {
-    setActive(null)
-    void load(true)
-  }
-
-  if (active) {
-    return (
-      <ChatView
-        ticket={active}
-        onBack={handleBack}
-        onTicketChange={setActive}
-      />
-    )
-  }
-
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Customer Service"
-        subtitle={tickets.length > 0 ? `${tickets.length} tickets · history saved` : undefined}
-        action={
-          tickets.length > 0 ? (
-            <button
-              onClick={() => setCreating(true)}
-              aria-label="New Ticket"
-              className="rounded-xl bg-indigo-600 p-2 text-white"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-          ) : undefined
-        }
-      />
+    <div className="-mx-3 flex min-h-[calc(100dvh-6.5rem)] flex-col bg-[#11141c] text-white sm:-mx-4 lg:-mx-6">
+      <header className="flex items-center gap-3 border-b border-white/5 px-3 py-3 sm:px-4">
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="text-slate-400 hover:text-white">
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+        <h1 className="flex-1 text-lg font-semibold">Customer Service</h1>
+        <button
+          onClick={() => setCreating(true)}
+          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500"
+        >
+          New Ticket
+        </button>
+      </header>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20">{error}</div>
-      )}
+      {error && <div className="mx-3 mt-3 rounded-lg bg-red-500/15 px-4 py-3 text-sm text-red-300">{error}</div>}
 
-      {loading ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900">
-          Loading tickets...
-        </div>
-      ) : tickets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 py-20 dark:border-gray-700">
-          <MessageCircle className="mb-4 h-12 w-12 text-gray-400" />
-          <h2 className="mb-2 text-lg font-semibold">No tickets yet</h2>
-          <p className="mb-6 text-sm text-gray-500">Create your first support ticket to get started</p>
-          <button
-            onClick={() => setCreating(true)}
-            className="rounded-xl bg-indigo-600 px-6 py-3 font-medium text-white"
-          >
-            Create First Ticket
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {tickets.map((ticket) => (
-            <button
-              key={ticket._id}
-              onClick={() => setActive(ticket)}
-              className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left dark:border-gray-800 dark:bg-gray-900"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{ticket.subject}</p>
-                  {ticket.lastMessage && (
-                    <p className="mt-1 truncate text-sm text-gray-500">{ticket.lastMessage}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-400">
-                    Opened {formatTicketTime(ticket.createdAt)}
-                    {ticket.lastMessageAt ? ` · Updated ${formatTicketTime(ticket.lastMessageAt)}` : ''}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${PRIORITY_STYLES[ticket.priority]}`}
+      <div className="flex min-h-0 flex-1">
+        <aside
+          className={`w-full shrink-0 overflow-y-auto border-white/5 md:w-72 md:border-r lg:w-80 ${
+            active ? 'hidden md:block' : 'block'
+          }`}
+        >
+          {loading ? (
+            <p className="px-4 py-10 text-center text-sm text-slate-500">Loading tickets...</p>
+          ) : tickets.length === 0 ? (
+            <div className="flex flex-col items-center px-4 py-16 text-center">
+              <MessageCircle className="mb-3 h-10 w-10 text-slate-600" />
+              <p className="text-sm text-slate-400">No tickets yet</p>
+              <button
+                onClick={() => setCreating(true)}
+                className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium"
+              >
+                Create First Ticket
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2 p-3">
+              {tickets.map((ticket) => {
+                const selected = active?._id === ticket._id
+                return (
+                  <button
+                    key={ticket._id}
+                    onClick={() => setActive(ticket)}
+                    className={`w-full rounded-xl border p-3 text-left ${
+                      selected
+                        ? 'border-indigo-500/50 bg-[#1c2230]'
+                        : 'border-white/5 bg-[#1a1d26] hover:border-white/10'
+                    }`}
                   >
-                    {ticket.priority}
-                  </span>
-                  <span className="text-xs capitalize text-gray-500">{ticket.status}</span>
-                  {!!ticket.unreadCount && (
-                    <span className="rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                      {ticket.unreadCount}
-                    </span>
-                  )}
-                </div>
+                    <p className="truncate font-medium text-white">{ticket.subject}</p>
+                    {ticket.lastMessage && (
+                      <p className="mt-1 truncate text-xs text-slate-500">{ticket.lastMessage}</p>
+                    )}
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${statusClass(ticket.status)}`}>
+                        {statusLabel(ticket.status)}
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        {formatCardDate(ticket.lastMessageAt || ticket.createdAt)}
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </aside>
+
+        <section className={`min-w-0 flex-1 ${active ? 'flex flex-col' : 'hidden md:flex md:flex-col'}`}>
+          {active ? (
+            <>
+              <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2 md:hidden">
+                <button onClick={() => setActive(null)} className="text-slate-400" aria-label="Back to tickets">
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <p className="truncate text-sm font-medium">{active.subject}</p>
               </div>
-            </button>
-          ))}
-        </div>
-      )}
+              <ChatPane ticket={active} onTicketChange={setActive} />
+            </>
+          ) : (
+            <div className="hidden flex-1 items-center justify-center text-sm text-slate-500 md:flex">
+              Select a ticket to view the conversation
+            </div>
+          )}
+        </section>
+      </div>
 
       {creating && (
         <NewTicketModal
           onClose={() => setCreating(false)}
           onCreated={(ticket) => {
             setCreating(false)
-            setTickets((prev) => [ticket, ...prev])
+            setTickets((prev) => [ticket, ...prev.filter((item) => item._id !== ticket._id)])
             setActive(ticket)
           }}
         />
