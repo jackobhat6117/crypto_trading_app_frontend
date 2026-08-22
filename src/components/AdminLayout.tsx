@@ -2,7 +2,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom'
 import {
     LayoutDashboard, Users, CreditCard, Settings, LogOut, Shield,
     AlertTriangle, BookOpen, TrendingUp, Coins, UserCog, BadgeCheck,
-    MessageSquare, Bell, Globe, Wallet
+    MessageSquare, Bell, Globe, Wallet, ArrowDownToLine, ArrowUpFromLine, KeyRound
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useEffect, useState } from 'react'
@@ -17,6 +17,8 @@ const navItems = [
     {
         section: 'Users & Finance', items: [
             { name: 'Users', href: '/admin/users', icon: Users },
+            { name: 'Deposit Log', href: '/admin/deposits', icon: ArrowUpFromLine },
+            { name: 'Withdrawal Log', href: '/admin/withdrawals', icon: ArrowDownToLine },
             { name: 'Transactions', href: '/admin/transactions', icon: CreditCard },
             { name: 'Sub-Admins', href: '/admin/subadmins', icon: UserCog },
         ]
@@ -127,7 +129,18 @@ export default function AdminLayout() {
                 </nav>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-white/5">
+                <div className="p-4 border-t border-white/5 space-y-3">
+                    <Link
+                        to="/admin/change-password"
+                        className={`flex items-center justify-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                            location.pathname === '/admin/change-password'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-indigo-600/90 text-white hover:bg-indigo-500'
+                        }`}
+                    >
+                        <KeyRound size={16} />
+                        Change Password
+                    </Link>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5 min-w-0">
                             <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 font-bold text-sm border border-red-500/30 shrink-0">

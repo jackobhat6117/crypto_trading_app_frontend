@@ -10,11 +10,43 @@ import {
 import PageHeader from '../components/layout/PageHeader'
 import { resolveMediaUrl } from '../utils/mediaUrl'
 
+const POLL_MS = 5000
+
 const PRIORITY_STYLES: Record<TicketPriority, string> = {
   low: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
   medium: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300',
   high: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300',
   urgent: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+}
+
+function formatMessageTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = new Date()
+  const sameDay = date.toDateString() === now.toDateString()
+  if (sameDay) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatTicketTime(value?: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function NewTicketModal({
@@ -121,30 +153,64 @@ function NewTicketModal({
   )
 }
 
-function ChatView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
+function ChatView({
+  ticket,
+  onBack,
+  onTicketChange,
+}: {
+  ticket: Ticket
+  onBack: () => void
+  onTicketChange: (ticket: Ticket) => void
+}) {
   const [messages, setMessages] = useState<TicketMessage[]>([])
   const [draft, setDraft] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const messageCountRef = useRef(0)
 
-  const load = useCallback(async () => {
+  const loadMessages = useCallback(async () => {
     try {
-      setMessages(await supportService.getMessages(ticket._id))
+      const next = await supportService.getMessages(ticket._id)
+      setMessages(next)
+      setError('')
+      return next
     } catch {
       setError('Failed to load messages')
+      return []
     }
   }, [ticket._id])
 
+  const refreshTicket = useCallback(async () => {
+    const latest = await supportService.findTicket(ticket._id)
+    if (latest) onTicketChange(latest)
+  }, [onTicketChange, ticket._id])
+
+  const load = useCallback(async () => {
+    await Promise.all([loadMessages(), refreshTicket()])
+  }, [loadMessages, refreshTicket])
+
   useEffect(() => {
-    load()
-    const interval = setInterval(load, 5000)
-    return () => clearInterval(interval)
+    void load()
+    const interval = window.setInterval(() => void load(), POLL_MS)
+    return () => window.clearInterval(interval)
   }, [load])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const container = scrollRef.current
+    const prevCount = messageCountRef.current
+    messageCountRef.current = messages.length
+    if (messages.length === 0) return
+
+    const nearBottom =
+      !container ||
+      container.scrollHeight - container.scrollTop - container.clientHeight < 120
+
+    if (messages.length > prevCount && nearBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages.length])
 
   const send = async (e: React.FormEvent) => {
@@ -167,6 +233,8 @@ function ChatView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
     }
   }
 
+  const readOnly = ticket.status === 'closed' || ticket.status === 'archived'
+
   return (
     <div className="flex h-[calc(100vh-12rem)] flex-col">
       <div className="flex items-center gap-3 border-b border-gray-200 pb-3 dark:border-gray-800">
@@ -177,11 +245,12 @@ function ChatView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
           <p className="font-semibold">{ticket.subject}</p>
           <p className="text-xs capitalize text-gray-500">
             {ticket.status} · {ticket.priority} priority
+            {messages.length > 0 ? ` · ${messages.length} message${messages.length === 1 ? '' : 's'}` : ''}
           </p>
         </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto py-4">
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto py-4">
         {messages.length === 0 ? (
           <p className="py-10 text-center text-sm text-gray-500">
             No messages yet. Send the first one below.
@@ -205,9 +274,7 @@ function ChatView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
                   </a>
                 )}
                 {msg.message && <p className="whitespace-pre-wrap text-sm">{msg.message}</p>}
-                <p className="mt-1 text-right text-[10px] opacity-60">
-                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
+                <p className="mt-1 text-right text-[10px] opacity-60">{formatMessageTime(msg.createdAt)}</p>
               </div>
             </div>
           ))
@@ -217,9 +284,10 @@ function ChatView({ ticket, onBack }: { ticket: Ticket; onBack: () => void }) {
 
       {error && <p className="pb-2 text-sm text-red-600">{error}</p>}
 
-      {ticket.status === 'closed' || ticket.status === 'archived' ? (
+      {readOnly ? (
         <p className="border-t border-gray-200 pt-3 text-center text-sm text-gray-500 dark:border-gray-800">
-          This ticket is {ticket.status}. Create a new ticket if you need more help.
+          This ticket is {ticket.status}. Your full conversation is saved above. Create a new ticket if you need
+          more help.
         </p>
       ) : (
         <form onSubmit={send} className="border-t border-gray-200 pt-3 dark:border-gray-800">
@@ -273,29 +341,44 @@ export default function CustomerServicePage() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       setTickets(await supportService.getTickets())
+      setError('')
     } catch {
-      setError('Failed to load tickets')
+      if (!silent) setError('Failed to load tickets')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    load()
+    void load(false)
+    const interval = window.setInterval(() => void load(true), POLL_MS)
+    return () => window.clearInterval(interval)
   }, [load])
 
+  const handleBack = () => {
+    setActive(null)
+    void load(true)
+  }
+
   if (active) {
-    return <ChatView ticket={active} onBack={() => setActive(null)} />
+    return (
+      <ChatView
+        ticket={active}
+        onBack={handleBack}
+        onTicketChange={setActive}
+      />
+    )
   }
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Customer Service"
-        subtitle={tickets.length > 0 ? `${tickets.length} tickets` : undefined}
+        subtitle={tickets.length > 0 ? `${tickets.length} tickets · history saved` : undefined}
         action={
           tickets.length > 0 ? (
             <button
@@ -344,7 +427,8 @@ export default function CustomerServicePage() {
                     <p className="mt-1 truncate text-sm text-gray-500">{ticket.lastMessage}</p>
                   )}
                   <p className="mt-1 text-xs text-gray-400">
-                    {new Date(ticket.createdAt).toLocaleDateString()}
+                    Opened {formatTicketTime(ticket.createdAt)}
+                    {ticket.lastMessageAt ? ` · Updated ${formatTicketTime(ticket.lastMessageAt)}` : ''}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">

@@ -44,6 +44,9 @@ import AdminSubAdmins from './pages/AdminSubAdmins'
 import AdminNotifyUsers from './pages/AdminNotifyUsers'
 import AdminSiteSettingsPage from './pages/AdminSiteSettings'
 import AdminSupport from './pages/AdminSupport'
+import AdminWithdrawals from './pages/AdminWithdrawals'
+import AdminChangePassword from './pages/AdminChangePassword'
+import AdminDeposits from './pages/AdminDeposits'
 import AdminSignIn from './pages/AdminSignIn'
 import { AdminRoute } from './components/AdminRoute'
 
@@ -109,6 +112,8 @@ function App() {
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="users/:id" element={<AdminUserEdit />} />
+              <Route path="deposits" element={<AdminDeposits />} />
+              <Route path="withdrawals" element={<AdminWithdrawals />} />
               <Route path="transactions" element={<AdminTransactions />} />
               <Route path="trades" element={<AdminTrades />} />
               <Route path="risk" element={<AdminRisk />} />
@@ -120,6 +125,7 @@ function App() {
               <Route path="notify" element={<AdminNotifyUsers />} />
               <Route path="site-settings" element={<AdminSiteSettingsPage />} />
               <Route path="support" element={<AdminSupport />} />
+              <Route path="change-password" element={<AdminChangePassword />} />
             </Route>
 
             <Route path="/subadmin/*" element={<Navigate to="/admin/dashboard" replace />} />

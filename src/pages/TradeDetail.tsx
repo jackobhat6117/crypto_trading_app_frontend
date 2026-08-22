@@ -439,37 +439,27 @@ export default function TradeDetail() {
               const left = item.expiresAt
                 ? Math.max(0, Math.ceil((new Date(item.expiresAt).getTime() - tick) / 1000))
                 : item.timer || 0
-              const duration = item.timer || 60
-              const width = Math.max(4, Math.min(100, ((duration - left) / duration) * 100))
+              const symbol = String(item.symbol || '').replace(/USDT$/i, '')
               return (
                 <button
                   key={item._id}
                   onClick={() => navigate(`/order/${item._id}`, { state: { trade: item } })}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-left dark:border-gray-700 dark:bg-gray-900"
+                  className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-3 text-left dark:border-gray-700 dark:bg-gray-900"
                 >
-                  <div className="mb-2 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">{item.symbol} / USDT</p>
-                      <p className="text-xs text-gray-500">
-                        {item.side === 'buy' ? 'Long' : 'Short'} • {item.leverage || 1}x
-                      </p>
-                    </div>
-                    <span className="rounded-lg bg-yellow-500 px-2 py-1 text-[10px] font-semibold text-white">PENDING</span>
-                  </div>
-                  <div className="mb-1 flex justify-between text-[11px] text-gray-500">
-                    <span>Time Remaining</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{left}s</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                    <div className="h-full bg-indigo-500" style={{ width: `${width}%` }} />
-                  </div>
-                  {(item.profitPercent || item.lossPercent) && (
-                    <p className="mt-2 text-[11px] text-gray-500">
-                      {item.profitPercent != null ? 'Win' : 'Loss'}{' '}
-                      {Math.abs(Number(item.profitPercent ?? item.lossPercent))}
-                      % of {item.amount} USDT
+                  <div>
+                    <p className="text-sm font-semibold text-teal-500">{symbol} Contract</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-yellow-500">
+                      <Clock className="h-3.5 w-3.5" />
+                      {left}s Running
                     </p>
-                  )}
+                  </div>
+                  <span
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white ${
+                      item.side === 'buy' ? 'bg-emerald-500' : 'bg-rose-500'
+                    }`}
+                  >
+                    {item.side === 'buy' ? 'Buy' : 'Sell'}
+                  </span>
                 </button>
               )
             })}

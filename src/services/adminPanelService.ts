@@ -2,6 +2,7 @@ import api from './api'
 import { Coin } from '../types'
 import { KycRecord, KycSettings } from './kycService'
 import { Ticket, TicketMessage, TicketStatus } from './supportService'
+import { FinanceStatus, normalizeDeposit, normalizeWithdrawal } from './financeService'
 
 export interface AdminSiteSettings {
   siteName: string
@@ -239,6 +240,143 @@ export const subAdminService = {
 export const adminNotificationService = {
   async send(payload: { title: string; message: string; userIds?: string[] }) {
     const response = await api.post('/api/admin/notifications/send', payload)
+    return response.data
+  },
+}
+
+export interface AdminWithdrawal {
+  _id: string
+  amount: number
+  fee?: number
+  netAmount?: number
+  coin: string
+  network?: string
+  address: string
+  depositAddress?: string
+  status: FinanceStatus
+  txHash?: string
+  adminNotes?: string
+  createdAt: string
+  approvedAt?: string
+  completedAt?: string
+  user?: { id?: string; _id?: string; name?: string; email?: string; uniqueId?: string }
+}
+
+function normalizeAdminWithdrawal(raw: Record<string, unknown>): AdminWithdrawal {
+  const user = (raw.user || {}) as Record<string, unknown>
+  return {
+    ...normalizeWithdrawal(raw),
+    coin: String(raw.coin || raw.coinSymbol || 'USDT'),
+    depositAddress: raw.depositAddress ? String(raw.depositAddress) : undefined,
+    user: {
+      id: user.id ? String(user.id) : undefined,
+      _id: user._id ? String(user._id) : undefined,
+      name: user.name ? String(user.name) : undefined,
+      email: user.email ? String(user.email) : undefined,
+      uniqueId: user.uniqueId ? String(user.uniqueId) : undefined,
+    },
+  }
+}
+
+export interface AdminDeposit {
+  _id: string
+  amount: number
+  coin: string
+  network?: string
+  type: string
+  status: FinanceStatus
+  description: string
+  address?: string
+  depositAddress?: string
+  walletAddress?: string
+  txHash?: string
+  transactionId?: string
+  screenshot?: string
+  adminNotes?: string
+  balanceBefore?: number
+  balanceAfter?: number
+  createdAt: string
+  user?: { id?: string; _id?: string; name?: string; email?: string; uniqueId?: string }
+}
+
+function displayDepositStatus(status: FinanceStatus): FinanceStatus {
+  return status === 'completed' ? 'approved' : status
+}
+
+function normalizeAdminDeposit(raw: Record<string, unknown>): AdminDeposit {
+  const user = (raw.user || {}) as Record<string, unknown>
+  const deposit = normalizeDeposit(raw)
+  const status = displayDepositStatus(deposit.status)
+  const coin = deposit.coin || 'USDT'
+  return {
+    ...deposit,
+    coin,
+    type: String(raw.type || 'deposit'),
+    status,
+    description:
+      raw.description
+        ? String(raw.description)
+        : `Deposit ${deposit.amount} USDT via ${coin} - ${
+            status === 'approved' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Pending approval'
+          }`,
+    depositAddress: raw.depositAddress ? String(raw.depositAddress) : deposit.address,
+    walletAddress: raw.walletAddress ? String(raw.walletAddress) : undefined,
+    transactionId: raw.transactionId ? String(raw.transactionId) : deposit.txHash,
+    user: {
+      id: user.id ? String(user.id) : undefined,
+      _id: user._id ? String(user._id) : undefined,
+      name: user.name ? String(user.name) : undefined,
+      email: user.email ? String(user.email) : undefined,
+      uniqueId: user.uniqueId ? String(user.uniqueId) : undefined,
+    },
+  }
+}
+
+export const adminDepositService = {
+  async list(status?: string): Promise<AdminDeposit[]> {
+    const response = await api.get('/api/admin/deposit-log', {
+      params: status && status !== 'all' ? { status } : undefined,
+    })
+    const list = response.data?.deposits ?? response.data?.data ?? []
+    return (Array.isArray(list) ? list : []).map((item: Record<string, unknown>) =>
+      normalizeAdminDeposit(item)
+    )
+  },
+
+  async approve(id: string, payload?: { notes?: string }) {
+    const response = await api.post(`/api/admin/deposit-log/${id}/approve`, payload)
+    return response.data
+  },
+
+  async reject(id: string, payload?: { notes?: string }) {
+    const response = await api.post(`/api/admin/deposit-log/${id}/reject`, payload)
+    return response.data
+  },
+}
+
+export const adminWithdrawalService = {
+  async list(status?: string): Promise<AdminWithdrawal[]> {
+    const response = await api.get('/api/admin/withdrawal-log', {
+      params: status && status !== 'all' ? { status } : undefined,
+    })
+    const list = response.data?.withdrawals ?? response.data?.data ?? []
+    return (Array.isArray(list) ? list : []).map((item: Record<string, unknown>) =>
+      normalizeAdminWithdrawal(item)
+    )
+  },
+
+  async approve(id: string, payload?: { txHash?: string; notes?: string }) {
+    const response = await api.post(`/api/admin/withdrawal-log/${id}/approve`, payload)
+    return response.data
+  },
+
+  async reject(id: string, payload?: { notes?: string }) {
+    const response = await api.post(`/api/admin/withdrawal-log/${id}/reject`, payload)
+    return response.data
+  },
+
+  async complete(id: string, payload?: { txHash?: string; notes?: string }) {
+    const response = await api.post(`/api/admin/withdrawal-log/${id}/complete`, payload)
     return response.data
   },
 }

@@ -19,6 +19,7 @@ export interface Ticket {
   status: TicketStatus
   priority: TicketPriority
   lastMessage?: string
+  lastMessageAt?: string
   unreadCount?: number
   createdAt: string
   updatedAt?: string
@@ -30,6 +31,11 @@ export const supportService = {
   async getTickets(): Promise<Ticket[]> {
     const response = await api.get('/api/chat/tickets')
     return response.data?.tickets ?? response.data?.data ?? []
+  },
+
+  async findTicket(ticketId: string): Promise<Ticket | null> {
+    const tickets = await this.getTickets()
+    return tickets.find((ticket) => ticket._id === ticketId) ?? null
   },
 
   async createTicket(subject: string, message: string, priority: TicketPriority = 'medium') {
