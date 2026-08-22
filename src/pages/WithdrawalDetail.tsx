@@ -104,7 +104,7 @@ export default function WithdrawalDetail() {
         {copy.tone === 'bad' && <XCircle className="mx-auto h-14 w-14 text-red-500" />}
         <h2 className="mt-4 text-lg font-bold">{copy.title}</h2>
         <p className="mt-1 text-sm text-gray-500">{copy.body}</p>
-        <p className="mt-4 text-3xl font-bold">{formatBalance(netAmount)} USDT</p>
+        <p className="mt-4 text-3xl font-bold">{formatBalance(record.amount)} USDT</p>
       </div>
 
       {!terminated && (
