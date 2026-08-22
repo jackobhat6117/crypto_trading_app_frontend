@@ -89,8 +89,6 @@ export default function WithdrawalDetail() {
   const copy = STATUS_COPY[record.status]
   const currentStep = TIMELINE.indexOf(record.status)
   const terminated = record.status === 'rejected' || record.status === 'cancelled'
-  const fee = record.fee ?? 0
-  const netAmount = record.netAmount ?? record.amount - fee
 
   return (
     <div className="space-y-4">
@@ -149,8 +147,7 @@ export default function WithdrawalDetail() {
         <h3 className="mb-3 font-semibold">Withdrawal Information</h3>
         {[
           { label: 'Amount', value: `${formatBalance(record.amount)} USDT` },
-          { label: 'Withdrawal Fee', value: `${formatBalance(fee)} USDT` },
-          { label: 'You Receive', value: `${formatBalance(netAmount)} USDT` },
+          { label: 'You Receive', value: `${formatBalance(record.amount)} USDT` },
           { label: 'Network', value: record.network || '—' },
           { label: 'Requested', value: new Date(record.createdAt).toLocaleString() },
         ].map((row) => (

@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { SiteSettingsProvider } from './contexts/SiteSettingsContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import AppShell from './components/layout/AppShell'
 import Landing from './pages/Landing'
@@ -53,6 +54,7 @@ import { AdminRoute } from './components/AdminRoute'
 function App() {
   return (
     <ThemeProvider>
+      <SiteSettingsProvider>
       <AuthProvider>
         <Router>
           <Routes>
@@ -134,6 +136,7 @@ function App() {
           </Routes>
         </Router>
       </AuthProvider>
+      </SiteSettingsProvider>
     </ThemeProvider>
   )
 }

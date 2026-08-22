@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useSiteSettings } from '../contexts/SiteSettingsContext'
+import { resolveMediaUrl } from '../utils/mediaUrl'
 
-const LOGO_SRC = 'https://api.basetradedex.com/uploads/site/logo-1783088481108-478478210.png'
+const FALLBACK_LOGO = 'https://api.basetradedex.com/uploads/site/logo-1783088481108-478478210.png'
 
 type BrandLogoProps = {
   size?: 'sm' | 'md' | 'lg'
@@ -9,7 +11,10 @@ type BrandLogoProps = {
 }
 
 export default function BrandLogo({ size = 'md', to = '/' }: BrandLogoProps) {
+  const settings = useSiteSettings()
   const [broken, setBroken] = useState(false)
+  const logoSrc = resolveMediaUrl(settings?.site.logo) || FALLBACK_LOGO
+  const name = settings?.site.name || 'Base'
   const mark =
     size === 'sm' ? 'h-8 w-8' : size === 'lg' ? 'h-10 w-10 sm:h-12 sm:w-12' : 'h-8 w-8 sm:h-10 sm:w-10'
   const text = size === 'sm' ? 'text-lg' : size === 'lg' ? 'text-xl sm:text-2xl' : 'text-lg sm:text-xl'
@@ -18,8 +23,8 @@ export default function BrandLogo({ size = 'md', to = '/' }: BrandLogoProps) {
     <Link to={to} className="flex items-center space-x-2 sm:space-x-3">
       {!broken ? (
         <img
-          src={LOGO_SRC}
-          alt="Base"
+          src={logoSrc}
+          alt={name}
           className={`${mark} rounded-xl object-contain shadow-lg shadow-indigo-500/20`}
           onError={() => setBroken(true)}
         />
@@ -31,7 +36,7 @@ export default function BrandLogo({ size = 'md', to = '/' }: BrandLogoProps) {
         </div>
       )}
       <span className={`${text} bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text font-bold tracking-tight text-transparent`}>
-        Base
+        {name.split(' ')[0] || 'Base'}
       </span>
     </Link>
   )

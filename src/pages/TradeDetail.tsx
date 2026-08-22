@@ -5,9 +5,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { tradeService } from '../services/tradeService'
 import { useMarketAssets } from '../hooks/useMarketAssets'
 import { formatBalance, formatChange, formatPrice } from '../utils/format'
+import { resolveMediaUrl } from '../utils/mediaUrl'
 import { AssetType, Trade } from '../types'
 import SimpleOrderBook from '../components/trading/SimpleOrderBook'
 import FundingRate from '../components/trading/FundingRate'
+import TradingViewChart from '../components/trading/TradingViewChart'
 import clsx from 'clsx'
 
 const leverageOptions = [1, 2, 3, 5, 10, 20, 50, 100]
@@ -168,14 +170,25 @@ export default function TradeDetail() {
             </button>
             <button
               onClick={() => setShowChart((open) => !open)}
-              className="shrink-0 rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
+              className={`shrink-0 rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                showChart ? 'bg-indigo-50 dark:bg-indigo-900/30' : ''
+              }`}
               title={showChart ? 'Hide Chart' : 'Show Chart'}
               aria-label={showChart ? 'Hide Chart' : 'Show Chart'}
             >
-              <BarChart3 className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              <BarChart3
+                className={`h-5 w-5 ${showChart ? 'text-indigo-600' : 'text-gray-600 dark:text-gray-400'}`}
+              />
             </button>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                {resolveMediaUrl(asset?.image) && (
+                  <img
+                    src={resolveMediaUrl(asset?.image)}
+                    alt=""
+                    className="h-6 w-6 rounded-full object-cover"
+                  />
+                )}
                 <h1 className="truncate text-base font-bold sm:text-lg">{pair}</h1>
                 <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs dark:bg-gray-700">Perp</span>
               </div>
@@ -208,20 +221,7 @@ export default function TradeDetail() {
         </div>
       </header>
 
-      {showChart && (
-        <div className="border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-3 flex gap-2">
-            {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => (
-              <button key={tf} className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
-                {tf}
-              </button>
-            ))}
-          </div>
-          <div className="flex h-48 items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500 dark:bg-gray-700">
-            TradingView chart · {pair}/USDT
-          </div>
-        </div>
-      )}
+      {showChart && <TradingViewChart symbol={pair} type={assetType} />}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-28 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 sm:w-32 md:w-40 lg:w-64">

@@ -6,6 +6,7 @@ import Footer from '../components/Footer'
 import { coinService } from '../services/marketDataService'
 import { Coin } from '../types'
 import { formatChange, formatPrice } from '../utils/format'
+import { resolveMediaUrl } from '../utils/mediaUrl'
 import { useTheme } from '../contexts/ThemeContext'
 import clsx from 'clsx'
 
@@ -234,8 +235,8 @@ export default function Landing() {
                       <td className="px-4 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 sm:px-6">{index + 1}</td>
                       <td className="px-4 py-4 sm:px-6">
                         <div className="flex items-center space-x-3">
-                          {coin.image ? (
-                            <img src={coin.image} alt="" className="h-10 w-10 rounded-full ring-1 ring-black/5 dark:ring-white/10" />
+                          {resolveMediaUrl(coin.image) ? (
+                            <img src={resolveMediaUrl(coin.image)} alt="" className="h-10 w-10 rounded-full ring-1 ring-black/5 dark:ring-white/10" />
                           ) : (
                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600 dark:bg-indigo-900">
                               {coin.symbol.charAt(0)}

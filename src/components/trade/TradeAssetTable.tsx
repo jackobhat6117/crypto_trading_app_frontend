@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { AssetType, MarketAsset } from '../../types'
 import { formatChange, formatPrice } from '../../utils/format'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 
 interface TradeAssetTableProps {
   assets: MarketAsset[]
@@ -63,8 +64,8 @@ export default function TradeAssetTable({ assets, type }: TradeAssetTableProps) 
             </div>
             <div className="col-span-6 sm:col-span-3">
               <div className="flex items-center space-x-2">
-                {asset.image ? (
-                  <img src={asset.image} alt="" className="h-6 w-6 rounded-full object-cover" />
+                {resolveMediaUrl(asset.image) ? (
+                  <img src={resolveMediaUrl(asset.image)} alt="" className="h-6 w-6 rounded-full object-cover" />
                 ) : (
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300">
                     {asset.symbol.slice(0, 1)}

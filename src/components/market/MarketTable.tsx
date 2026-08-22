@@ -2,7 +2,22 @@ import { useNavigate } from 'react-router-dom'
 import { Star } from 'lucide-react'
 import { formatChange, formatPrice } from '../../utils/format'
 import { AssetType, MarketAsset } from '../../types'
+import { resolveMediaUrl } from '../../utils/mediaUrl'
 import clsx from 'clsx'
+
+function AssetIcon({ asset, size = 'h-8 w-8' }: { asset: MarketAsset; size?: string }) {
+  const src = resolveMediaUrl(asset.image)
+  if (src) {
+    return <img src={src} alt="" className={`${size} shrink-0 rounded-full object-cover`} />
+  }
+  return (
+    <div
+      className={`flex ${size} shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300`}
+    >
+      {asset.symbol.slice(0, 1)}
+    </div>
+  )
+}
 
 interface MarketTableProps {
   assets: MarketAsset[]
@@ -49,6 +64,7 @@ function AssetRow({
       )}
     >
       <div className="col-span-2 flex min-w-0 items-center gap-2">
+        <AssetIcon asset={asset} size="h-8 w-8" />
         {onToggleFavourite && (
           <button
             type="button"
@@ -109,6 +125,7 @@ function AssetCard({
     >
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-2">
+          <AssetIcon asset={asset} size="h-8 w-8" />
           {onToggleFavourite && (
             <span
               role="button"

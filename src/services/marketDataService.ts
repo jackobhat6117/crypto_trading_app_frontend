@@ -1,6 +1,7 @@
 import api from './api'
 import { Coin, Metal, SiteSettings } from '../types'
 import { FALLBACK_COINS, mergeCoinCatalog } from '../data/placeholderCoins'
+import { resolveCoinIcon } from '../utils/coinIcons'
 import { getBinanceQuotes } from './binanceQuotes'
 
 interface CoinGeckoMarket {
@@ -24,7 +25,7 @@ function toCoin(raw: Record<string, unknown>, index = 0): Coin | null {
     _id: String(raw._id || raw.id || symbol.toLowerCase()),
     symbol,
     name: String(raw.name || symbol),
-    image: raw.image ? String(raw.image) : undefined,
+    image: resolveCoinIcon(symbol, raw.image ? String(raw.image) : undefined),
     price: Number(raw.price ?? 0),
     change24h: Number(raw.change24h ?? 0),
     high24h: Number(raw.high24h ?? raw.price ?? 0),

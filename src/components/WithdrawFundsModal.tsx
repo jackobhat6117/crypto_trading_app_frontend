@@ -85,10 +85,7 @@ export default function WithdrawFundsModal({
 
   const minAmount = coin?.minWithdraw ?? settings?.minWithdrawal ?? 1
   const maxAmount = coin?.maxWithdraw ?? settings?.maxWithdrawal ?? 0
-  const fee = settings?.fee ?? 0
-  const feeType = settings?.feeType ?? 'fixed'
-  const feeAmount = feeType === 'percentage' ? (Number(amount) || 0) * (fee / 100) : fee
-  const netAmount = Math.max(0, (Number(amount) || 0) - feeAmount)
+  const netAmount = Math.max(0, Number(amount) || 0)
 
   const chooseCoin = (item: Coin) => {
     setCoin(item)
@@ -275,14 +272,12 @@ export default function WithdrawFundsModal({
                   <p className="text-lg font-semibold">{formatBalance(balance)} USDT</p>
                 </div>
 
-                {(minAmount > 0 || maxAmount > 0 || fee > 0) && (
+                {(minAmount > 0 || maxAmount > 0) && (
                   <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs dark:border-blue-800 dark:bg-blue-900/20">
                     <p className="mb-1 font-semibold text-blue-900 dark:text-blue-200">Withdrawal limits</p>
                     <p className="text-blue-700 dark:text-blue-300">
                       {minAmount > 0 && `Minimum: ${minAmount} ${coin.symbol}`}
                       {maxAmount > 0 && `  Maximum: ${maxAmount} ${coin.symbol}`}
-                      {fee > 0 &&
-                        `  Fee: ${feeType === 'percentage' ? `${fee}%` : `${fee} ${coin.symbol}`}`}
                     </p>
                   </div>
                 )}
@@ -312,7 +307,6 @@ export default function WithdrawFundsModal({
                   {Number(amount) > 0 && (
                     <p className="mt-1 text-xs text-gray-500">
                       You will receive {formatBalance(netAmount)} {coin.symbol}
-                      {feeAmount > 0 ? ` after a ${formatBalance(feeAmount)} fee` : ''}
                     </p>
                   )}
                 </div>

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Pencil, Plus, Trash2, Wallet } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ImagePlus, Pencil, Plus, Trash2, Wallet } from 'lucide-react'
 import { adminCoinService, DEPOSIT_ADDRESS_COINS } from '../services/adminPanelService'
 import { Coin } from '../types'
 import { resolveMediaUrl } from '../utils/mediaUrl'
@@ -28,13 +28,35 @@ function CoinForm({
   onSave,
   onCancel,
   saving,
+  onIconSaved,
 }: {
   draft: Draft
   onChange: (draft: Draft) => void
   onSave: () => void
   onCancel: () => void
   saving: boolean
+  onIconSaved?: () => void
 }) {
+  const [uploadingIcon, setUploadingIcon] = useState(false)
+  const [iconError, setIconError] = useState('')
+  const preview = resolveMediaUrl(draft.image)
+
+  const uploadIcon = async (file?: File) => {
+    if (!file) return
+    setUploadingIcon(true)
+    setIconError('')
+    try {
+      const image = await adminCoinService.uploadIcon(file, draft._id)
+      onChange({ ...draft, image })
+      onIconSaved?.()
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setIconError(detail || 'Failed to upload coin icon')
+    } finally {
+      setUploadingIcon(false)
+    }
+  }
+
   const fields: { key: keyof Coin; label: string; type: string }[] = [
     { key: 'symbol', label: 'Symbol', type: 'text' },
     { key: 'name', label: 'Name', type: 'text' },
@@ -51,6 +73,50 @@ function CoinForm({
         <h2 className="mb-4 text-lg font-bold text-white">
           {draft._id ? 'Edit Coin' : 'Create New Coin'}
         </h2>
+        <div className="mb-4 rounded-lg border border-white/10 bg-[#0d1117] p-3">
+          <p className="mb-2 text-xs text-slate-400">Coin icon</p>
+          <div className="flex items-center gap-3">
+            {preview ? (
+              <img src={preview} alt="" className="h-12 w-12 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-slate-400">
+                <ImagePlus size={18} />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <label className="inline-flex cursor-pointer items-center rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/15">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => {
+                    void uploadIcon(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+                {uploadingIcon ? 'Uploading…' : preview ? 'Replace icon' : 'Upload icon'}
+              </label>
+              {preview && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...draft, image: '' })}
+                  className="ml-2 text-xs text-slate-400 hover:text-red-400"
+                >
+                  Remove
+                </button>
+              )}
+              <p className="mt-1 text-[11px] text-slate-500">PNG, JPG, WEBP, or GIF. Shown on the customer market and deposit screens.</p>
+            </div>
+          </div>
+          <input
+            value={draft.image || ''}
+            onChange={(e) => onChange({ ...draft, image: e.target.value })}
+            placeholder="Or paste an icon URL"
+            className="mt-3 w-full rounded-lg border border-white/10 bg-[#111827] px-3 py-2 text-xs text-white"
+          />
+          {iconError && <p className="mt-2 text-xs text-red-400">{iconError}</p>}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           {fields.map((field) => (
             <div key={field.key}>
@@ -248,6 +314,10 @@ export default function AdminCoins() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [iconCoinId, setIconCoinId] = useState('')
+  const iconInputRef = useRef<HTMLInputElement>(null)
+  const iconCoinRef = useRef<Coin | null>(null)
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -301,6 +371,32 @@ export default function AdminCoins() {
     }
   }
 
+  const pickIcon = (coin: Coin) => {
+    iconCoinRef.current = coin
+    iconInputRef.current?.click()
+  }
+
+  const saveIcon = async (file?: File) => {
+    const coin = iconCoinRef.current
+    if (!file || !coin) return
+    setIconCoinId(coin._id)
+    setError('')
+    setNotice('')
+    try {
+      const image = await adminCoinService.uploadIcon(file, coin._id)
+      if (!image) throw new Error('No icon returned')
+      setNotice(`${coin.symbol} icon updated`)
+      if (draft?._id === coin._id) setDraft({ ...draft, image })
+      await load(true)
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setError(detail || `Failed to update ${coin.symbol} icon`)
+    } finally {
+      setIconCoinId('')
+      iconCoinRef.current = null
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
@@ -321,6 +417,21 @@ export default function AdminCoins() {
           {error}
         </div>
       )}
+      {notice && (
+        <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
+          {notice}
+        </div>
+      )}
+      <input
+        ref={iconInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={(e) => {
+          void saveIcon(e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
 
       <DepositWalletSection coins={depositCoins} onSaved={() => load(true)} />
 
@@ -361,13 +472,20 @@ export default function AdminCoins() {
                 <tr key={coin._id} className="border-b border-white/5 last:border-0">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2.5">
-                      {coin.image ? (
-                        <img src={resolveMediaUrl(coin.image)} alt="" className="h-7 w-7 rounded-full" />
-                      ) : (
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-slate-300">
-                          {coin.symbol.charAt(0)}
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => pickIcon(coin)}
+                        title={coin.image ? `Change ${coin.symbol} icon` : `Add ${coin.symbol} icon`}
+                        className="relative shrink-0"
+                      >
+                        {coin.image ? (
+                          <img src={resolveMediaUrl(coin.image)} alt="" className="h-7 w-7 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-slate-300">
+                            {coin.symbol.charAt(0)}
+                          </div>
+                        )}
+                      </button>
                       <div>
                         <p className="font-medium text-white">{coin.symbol}</p>
                         <p className="text-xs text-slate-500">{coin.name}</p>
@@ -400,6 +518,15 @@ export default function AdminCoins() {
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-2">
                       <button
+                        onClick={() => pickIcon(coin)}
+                        disabled={iconCoinId === coin._id}
+                        aria-label={coin.image ? 'Change icon' : 'Add icon'}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-50"
+                        title={coin.image ? 'Change icon' : 'Add icon'}
+                      >
+                        <ImagePlus size={15} />
+                      </button>
+                      <button
                         onClick={() => setDraft(coin)}
                         aria-label="Edit coin"
                         className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-white"
@@ -429,6 +556,9 @@ export default function AdminCoins() {
           onSave={save}
           onCancel={() => setDraft(null)}
           saving={saving}
+          onIconSaved={() => {
+            void load(true)
+          }}
         />
       )}
     </div>

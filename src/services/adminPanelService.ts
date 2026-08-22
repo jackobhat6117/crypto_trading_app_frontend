@@ -1,5 +1,6 @@
 import api from './api'
 import { Coin } from '../types'
+import { resolveCoinIcon } from '../utils/coinIcons'
 import { KycRecord, KycSettings } from './kycService'
 import { Ticket, TicketMessage, TicketStatus } from './supportService'
 import { FinanceStatus, normalizeDeposit, normalizeWithdrawal } from './financeService'
@@ -8,6 +9,8 @@ export interface AdminSiteSettings {
   siteName: string
   logo?: string
   favicon?: string
+  metaTitle?: string
+  metaDescription?: string
   supportEmail?: string
   currency?: string
   maintenanceMode?: boolean
@@ -75,7 +78,7 @@ function normalizeAdminCoin(raw: unknown): Coin | null {
     _id: String(item._id || item.id || symbol.toLowerCase()),
     symbol,
     name: String(item.name || symbol),
-    image: item.image ? String(item.image) : undefined,
+    image: resolveCoinIcon(symbol, item.image ? String(item.image) : undefined),
     price: Number(item.price ?? 0),
     change24h: Number(item.change24h ?? 0),
     high24h: Number(item.high24h ?? item.price ?? 0),
@@ -106,6 +109,15 @@ export const adminCoinService = {
     return (Array.isArray(list) ? list : [])
       .map(normalizeAdminCoin)
       .filter((coin): coin is Coin => Boolean(coin))
+  },
+
+  async uploadIcon(file: File, id?: string) {
+    const form = new FormData()
+    form.append('icon', file)
+    const response = await api.post(id ? `/api/coins/admin/${id}/icon` : '/api/coins/admin/icon', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return String(response.data?.image || response.data?.coin?.image || '')
   },
 
   async create(payload: Partial<Coin>) {

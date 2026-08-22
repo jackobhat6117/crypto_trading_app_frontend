@@ -103,6 +103,8 @@ export interface SiteSettings {
     name: string
     logo?: string
     favicon?: string
+    metaTitle?: string
+    metaDescription?: string
     currency: string
   }
 }

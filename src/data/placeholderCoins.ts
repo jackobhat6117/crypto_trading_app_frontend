@@ -1,4 +1,5 @@
 import { Coin } from '../types'
+import { DEFAULT_COIN_ICONS, resolveCoinIcon } from '../utils/coinIcons'
 
 /** Sample deposit addresses so the Add Funds QR step works before real wallets are configured. */
 export const PLACEHOLDER_ADDRESSES: Record<string, { address: string; network: string }> = {
@@ -15,9 +16,9 @@ export const PLACEHOLDER_ADDRESSES: Record<string, { address: string; network: s
 }
 
 export const FALLBACK_COINS: Coin[] = [
-  { _id: 'btc', symbol: 'BTC', name: 'Bitcoin', price: 67000, change24h: 1.2, high24h: 68000, low24h: 65000, rank: 1, isActive: true, minDeposit: 10, image: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png' },
-  { _id: 'eth', symbol: 'ETH', name: 'Ethereum', price: 3500, change24h: 0.8, high24h: 3600, low24h: 3400, rank: 2, isActive: true, minDeposit: 10, image: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png' },
-  { _id: 'usdt', symbol: 'USDT', name: 'Tether', price: 1, change24h: 0.01, high24h: 1.01, low24h: 0.99, rank: 3, isActive: true, minDeposit: 10, image: 'https://assets.coingecko.com/coins/images/325/small/Tether.png' },
+  { _id: 'btc', symbol: 'BTC', name: 'Bitcoin', price: 67000, change24h: 1.2, high24h: 68000, low24h: 65000, rank: 1, isActive: true, minDeposit: 10, image: DEFAULT_COIN_ICONS.BTC },
+  { _id: 'eth', symbol: 'ETH', name: 'Ethereum', price: 3500, change24h: 0.8, high24h: 3600, low24h: 3400, rank: 2, isActive: true, minDeposit: 10, image: DEFAULT_COIN_ICONS.ETH },
+  { _id: 'usdt', symbol: 'USDT', name: 'Tether', price: 1, change24h: 0.01, high24h: 1.01, low24h: 0.99, rank: 3, isActive: true, minDeposit: 10, image: DEFAULT_COIN_ICONS.USDT },
   { _id: 'bnb', symbol: 'BNB', name: 'BNB', price: 580, change24h: 0.4, high24h: 590, low24h: 570, rank: 4, isActive: true, minDeposit: 10, image: 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png' },
   { _id: 'sol', symbol: 'SOL', name: 'Solana', price: 145, change24h: 2.1, high24h: 150, low24h: 140, rank: 5, isActive: true, minDeposit: 10, image: 'https://assets.coingecko.com/coins/images/4128/small/solana.png' },
   { _id: 'xrp', symbol: 'XRP', name: 'XRP', price: 0.54, change24h: -0.3, high24h: 0.56, low24h: 0.52, rank: 6, isActive: true, minDeposit: 10, image: 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png' },
@@ -46,7 +47,15 @@ export function mergeCoinCatalog(remote: Coin[]): Coin[] {
     if (!coin?.symbol) continue
     const key = coin.symbol.toUpperCase()
     const existing = bySymbol.get(key)
-    bySymbol.set(key, withDepositAddress({ ...existing, ...coin, symbol: key }))
+    bySymbol.set(
+      key,
+      withDepositAddress({
+        ...existing,
+        ...coin,
+        symbol: key,
+        image: resolveCoinIcon(key, coin.image || existing?.image),
+      })
+    )
   }
   return [...bySymbol.values()].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
 }
