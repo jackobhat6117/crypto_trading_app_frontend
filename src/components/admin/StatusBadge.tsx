@@ -37,6 +37,8 @@ const colorMap: Record<string, string> = {
     WITHDRAWAL: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
 
     SUPER_ADMIN: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+    PROTECTED: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    SUPPORT_ADMIN: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
     ADMIN: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
     USER: 'bg-slate-500/15 text-slate-400 border-slate-500/30',
 }

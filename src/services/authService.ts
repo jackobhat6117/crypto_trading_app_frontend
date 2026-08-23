@@ -15,6 +15,14 @@ export interface SignUpData {
   phone?: string
 }
 
+export interface SignUpResult {
+  requiresVerification: boolean
+  email: string
+  message?: string
+  emailSent?: boolean
+  tokens?: AuthTokens
+}
+
 export interface TwoFactorStatus {
   enabled: boolean
 }
@@ -145,15 +153,31 @@ export const authService = {
     }
   },
 
-  async signup(data: SignUpData): Promise<AuthTokens> {
+  async signup(data: SignUpData): Promise<SignUpResult> {
+    const postSignup = async (path: string) => {
+      const response = await api.post(path, data)
+      const payload = response.data as Record<string, unknown>
+      if (payload.requiresVerification) {
+        return {
+          requiresVerification: true as const,
+          email: String(payload.email || data.email),
+          message: typeof payload.message === 'string' ? payload.message : undefined,
+          emailSent: payload.emailSent !== false,
+        }
+      }
+      return {
+        requiresVerification: false as const,
+        email: data.email,
+        tokens: unwrapAuth(payload),
+      }
+    }
+
     try {
-      const response = await api.post('/api/auth/signup', data)
-      return unwrapAuth(response.data)
+      return await postSignup('/api/auth/signup')
     } catch (error: unknown) {
       const status = (error as { response?: { status?: number } })?.response?.status
       if (status !== 404) throw error
-      const response = await api.post('/api/auth/register', data)
-      return unwrapAuth(response.data)
+      return postSignup('/api/auth/register')
     }
   },
 

@@ -20,7 +20,10 @@ export interface SubAdmin {
   _id: string
   name?: string
   email: string
+  role?: string
+  adminRole?: string
   isActive?: boolean
+  isProtected?: boolean
   assignedUsers?: string[]
   createdAt?: string
 }
@@ -223,7 +226,7 @@ export const subAdminService = {
     return response.data?.subadmins ?? response.data?.data ?? []
   },
 
-  async create(payload: { name: string; email: string; password: string }) {
+  async create(payload: { name: string; email: string; password: string; accessLevel?: 'full' | 'support' }) {
     const response = await api.post('/api/admin/subadmins', payload)
     return response.data
   },

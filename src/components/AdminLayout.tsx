@@ -20,7 +20,7 @@ const navItems = [
             { name: 'Deposit Log', href: '/admin/deposits', icon: ArrowUpFromLine },
             { name: 'Withdrawal Log', href: '/admin/withdrawals', icon: ArrowDownToLine },
             { name: 'Transactions', href: '/admin/transactions', icon: CreditCard },
-            { name: 'Sub-Admins', href: '/admin/subadmins', icon: UserCog },
+            { name: 'Admins', href: '/admin/subadmins', icon: UserCog },
         ]
     },
     {

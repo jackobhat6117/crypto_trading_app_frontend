@@ -132,10 +132,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }
 
   const signup = async (email: string, password: string, name?: string, phone?: string) => {
-    const tokens = await authService.signup({ email, password, name, phone })
-    sessionManager.saveSession(tokens)
-    setUser(tokens.user)
-    return tokens.user
+    const result = await authService.signup({ email, password, name, phone })
+    if (result.tokens) {
+      sessionManager.saveSession(result.tokens)
+      setUser(result.tokens.user)
+      return result.tokens.user
+    }
+    throw new Error(result.message || 'Please verify your email to continue')
   }
 
   const refreshUser = async () => {
