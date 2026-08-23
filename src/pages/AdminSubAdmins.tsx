@@ -35,7 +35,8 @@ export default function AdminSubAdmins() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setSubAdmins(await subAdminService.list())
+      const admins = await subAdminService.list()
+      setSubAdmins(admins.filter((admin) => !isProtectedOwnerEmail(admin.email)))
     } catch {
       setError('Failed to fetch admin accounts')
     } finally {
