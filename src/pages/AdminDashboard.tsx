@@ -164,8 +164,8 @@ export default function AdminDashboard() {
 
             {/* Top Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-                <StatCard label="Total Users" value={loading ? '–' : totalUsers.toLocaleString()} icon={Users} color="blue" />
-                <StatCard label="Active Users" value={loading ? '–' : activeUsers.toLocaleString()} sub={`${totalUsers > 0 ? ((activeUsers / totalUsers) * 100).toFixed(0) : 0}% of total`} icon={Activity} color="emerald" />
+                <StatCard label="Total Customers" value={loading ? '–' : totalUsers.toLocaleString()} icon={Users} color="blue" />
+                <StatCard label="Active Customers" value={loading ? '–' : activeUsers.toLocaleString()} sub={`${totalUsers > 0 ? ((activeUsers / totalUsers) * 100).toFixed(0) : 0}% of total`} icon={Activity} color="emerald" />
                 <StatCard label="24h Volume" value={loading ? '–' : formatUSD(volume24h)} icon={TrendingUp} color="cyan" />
                 <StatCard label="24h Fees" value={loading ? '–' : formatUSD(fees24h)} icon={DollarSign} color="purple" />
                 <StatCard label="Pending Deposits" value={loading ? '–' : pendingDeposits} icon={ArrowDownRight} color={pendingDeposits > 0 ? 'amber' : 'emerald'} />
