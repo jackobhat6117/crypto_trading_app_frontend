@@ -3,8 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { authService } from '../services/authService'
 import AuthLayout from '../components/auth/AuthLayout'
-import PasswordRequirements from '../components/auth/PasswordRequirements'
-import { getPasswordValidationError, isStrongPassword } from '../utils/password'
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams()
@@ -20,9 +18,8 @@ export default function ResetPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    const passwordError = getPasswordValidationError(password)
-    if (passwordError) {
-      setError(passwordError)
+    if (!password.trim()) {
+      setError('Please enter a password')
       return
     }
     if (password !== confirmPassword) {
@@ -84,7 +81,6 @@ export default function ResetPassword() {
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
-          <PasswordRequirements password={password} />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -101,7 +97,7 @@ export default function ResetPassword() {
         </div>
         <button
           type="submit"
-          disabled={loading || !isStrongPassword(password) || password !== confirmPassword}
+          disabled={loading || !password.trim() || password !== confirmPassword}
           className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
         >
           {loading ? 'Submitting...' : 'Reset Password'}

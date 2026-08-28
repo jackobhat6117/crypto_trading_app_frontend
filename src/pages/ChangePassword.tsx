@@ -16,8 +16,8 @@ export default function ChangePassword() {
     e.preventDefault()
     setError('')
     setNotice('')
-    if (newPassword.length < 8) {
-      setError('Enter new password (min 8 characters)')
+    if (!newPassword.trim()) {
+      setError('Please enter a new password')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -41,7 +41,7 @@ export default function ChangePassword() {
 
   const fields = [
     { label: 'Current Password', value: currentPassword, set: setCurrentPassword, placeholder: 'Enter your current password' },
-    { label: 'New Password', value: newPassword, set: setNewPassword, placeholder: 'Enter new password (min 8 characters)' },
+    { label: 'New Password', value: newPassword, set: setNewPassword, placeholder: 'Enter new password' },
     { label: 'Confirm New Password', value: confirmPassword, set: setConfirmPassword, placeholder: 'Re-enter your new password' },
   ]
 

@@ -6,8 +6,6 @@ import { useTheme } from '../contexts/ThemeContext'
 import BrandLogo from '../components/BrandLogo'
 import clsx from 'clsx'
 import { DEFAULT_PHONE_COUNTRY, findPhoneCountry, PHONE_COUNTRIES } from '../utils/countries'
-import { getPasswordValidationError, isStrongPassword } from '../utils/password'
-import PasswordRequirements from '../components/auth/PasswordRequirements'
 
 const inputClass =
   'w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 sm:px-4 sm:py-3 sm:text-base'
@@ -62,9 +60,8 @@ export default function SignUp() {
   const handleCreateAccount = async (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
-    const passwordError = getPasswordValidationError(password)
-    if (passwordError) {
-      setError(passwordError)
+    if (!password.trim()) {
+      setError('Please enter a password')
       return
     }
     if (password !== confirmPassword) {
@@ -89,8 +86,6 @@ export default function SignUp() {
       setLoading(false)
     }
   }
-
-  const passwordReady = isStrongPassword(password) && password === confirmPassword
 
   const socialUnavailable = () => {
     setNotice('Social sign-up is not available yet. Continue with email.')
@@ -260,7 +255,7 @@ export default function SignUp() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Create a strong password"
+                      placeholder="Create a password"
                       className={clsx(inputClass, 'pr-12')}
                     />
                     <button
@@ -272,7 +267,6 @@ export default function SignUp() {
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
-                  <PasswordRequirements password={password} />
                 </div>
 
                 <div>
@@ -302,7 +296,7 @@ export default function SignUp() {
 
                 <button
                   type="submit"
-                  disabled={loading || !passwordReady}
+                  disabled={loading || !password.trim() || password !== confirmPassword}
                   className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:scale-[1.02] hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:py-3 sm:text-base"
                 >
                   {loading ? 'Creating account...' : 'Create Account'}

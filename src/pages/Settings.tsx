@@ -95,8 +95,8 @@ export default function Settings() {
     e.preventDefault()
     setError('')
     setNotice('')
-    if (newPassword.length < 8) {
-      setError('Enter new password (min 8 characters)')
+    if (!newPassword.trim()) {
+      setError('Please enter a new password')
       return
     }
     if (newPassword !== confirmPassword) {

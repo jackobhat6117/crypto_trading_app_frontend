@@ -71,8 +71,8 @@ export default function AdminSubAdmins() {
       setCreateError('Email is required')
       return
     }
-    if (draft.password.length < 8) {
-      setCreateError('Password must be at least 8 characters')
+    if (!draft.password.trim()) {
+      setCreateError('Password is required')
       return
     }
     setSaving(true)
@@ -111,8 +111,8 @@ export default function AdminSubAdmins() {
 
   const confirmReset = async () => {
     if (!resetting || isLocked(resetting)) return
-    if (newPassword.length < 8) {
-      setResetError('Password must be at least 8 characters')
+    if (!newPassword.trim()) {
+      setResetError('Password is required')
       return
     }
     if (newPassword !== confirmPassword) {

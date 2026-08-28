@@ -24,8 +24,8 @@ export default function FundPasswordModal({ isOpen, onClose, onSuccess }: FundPa
     e.preventDefault()
     setError('')
 
-    if (fundPassword.length < 8) {
-      setError('Fund password must be at least 8 characters')
+    if (!fundPassword.trim()) {
+      setError('Please enter a fund password')
       return
     }
 
@@ -95,9 +95,8 @@ export default function FundPasswordModal({ isOpen, onClose, onSuccess }: FundPa
                 value={fundPassword}
                 onChange={(e) => setFundPassword(e.target.value)}
                 required
-                minLength={8}
                 className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all pr-12"
-                placeholder="Enter fund password (min 8 characters)"
+                placeholder="Enter fund password"
               />
               <button
                 type="button"
@@ -120,7 +119,6 @@ export default function FundPasswordModal({ isOpen, onClose, onSuccess }: FundPa
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                minLength={8}
                 className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all pr-12"
                 placeholder="Confirm fund password"
               />

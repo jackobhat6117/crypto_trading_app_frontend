@@ -15,8 +15,8 @@ export default function AdminChangePassword() {
     e.preventDefault()
     setError('')
     setNotice('')
-    if (newPassword.length < 8) {
-      setError('Enter a new password (min 8 characters)')
+    if (!newPassword.trim()) {
+      setError('Please enter a new password')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -49,7 +49,7 @@ export default function AdminChangePassword() {
       label: 'New Password',
       value: newPassword,
       set: setNewPassword,
-      placeholder: 'Enter new password (min 8 characters)',
+      placeholder: 'Enter new password',
     },
     {
       label: 'Confirm New Password',

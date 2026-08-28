@@ -227,8 +227,8 @@ export default function AdminUserEdit() {
 
   const savePassword = async () => {
     if (isProtectedOwnerEmail(user?.email)) return
-    if (newPassword.length < 8) {
-      showToast('Password must be at least 8 characters', false)
+    if (!newPassword.trim()) {
+      showToast('Password is required', false)
       return
     }
     setSavingPassword(true)
@@ -468,7 +468,7 @@ export default function AdminUserEdit() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password (min 8 characters)"
+              placeholder="Enter new password"
               className={fieldClass}
             />
             <button
