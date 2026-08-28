@@ -236,7 +236,7 @@ export default function Landing() {
                       <td className="px-4 py-4 sm:px-6">
                         <div className="flex items-center space-x-3">
                           {resolveMediaUrl(coin.image) ? (
-                            <img src={resolveMediaUrl(coin.image)} alt="" className="h-10 w-10 rounded-full ring-1 ring-black/5 dark:ring-white/10" />
+                            <img src={resolveMediaUrl(coin.image)} alt={`${coin.name || coin.symbol} logo`} className="h-10 w-10 rounded-full ring-1 ring-black/5 dark:ring-white/10" />
                           ) : (
                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600 dark:bg-indigo-900">
                               {coin.symbol.charAt(0)}

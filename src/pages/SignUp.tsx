@@ -5,25 +5,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import BrandLogo from '../components/BrandLogo'
 import clsx from 'clsx'
-
-const COUNTRIES = [
-  { code: 'US', name: 'United States', dial: '+1', flag: '🇺🇸' },
-  { code: 'GB', name: 'United Kingdom', dial: '+44', flag: '🇬🇧' },
-  { code: 'CA', name: 'Canada', dial: '+1', flag: '🇨🇦' },
-  { code: 'AU', name: 'Australia', dial: '+61', flag: '🇦🇺' },
-  { code: 'ET', name: 'Ethiopia', dial: '+251', flag: '🇪🇹' },
-  { code: 'NG', name: 'Nigeria', dial: '+234', flag: '🇳🇬' },
-  { code: 'KE', name: 'Kenya', dial: '+254', flag: '🇰🇪' },
-  { code: 'GH', name: 'Ghana', dial: '+233', flag: '🇬🇭' },
-  { code: 'ZA', name: 'South Africa', dial: '+27', flag: '🇿🇦' },
-  { code: 'IN', name: 'India', dial: '+91', flag: '🇮🇳' },
-  { code: 'AE', name: 'United Arab Emirates', dial: '+971', flag: '🇦🇪' },
-  { code: 'CN', name: 'China', dial: '+86', flag: '🇨🇳' },
-  { code: 'JP', name: 'Japan', dial: '+81', flag: '🇯🇵' },
-  { code: 'DE', name: 'Germany', dial: '+49', flag: '🇩🇪' },
-  { code: 'FR', name: 'France', dial: '+33', flag: '🇫🇷' },
-  { code: 'BR', name: 'Brazil', dial: '+55', flag: '🇧🇷' },
-]
+import { DEFAULT_PHONE_COUNTRY, findPhoneCountry, PHONE_COUNTRIES } from '../utils/countries'
+import { getPasswordValidationError, isStrongPassword } from '../utils/password'
+import PasswordRequirements from '../components/auth/PasswordRequirements'
 
 const inputClass =
   'w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 sm:px-4 sm:py-3 sm:text-base'
@@ -55,7 +39,7 @@ export default function SignUp() {
   const [step, setStep] = useState<1 | 2>(1)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
-  const [country, setCountry] = useState(COUNTRIES[0])
+  const [country, setCountry] = useState(DEFAULT_PHONE_COUNTRY)
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -78,8 +62,9 @@ export default function SignUp() {
   const handleCreateAccount = async (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters')
+    const passwordError = getPasswordValidationError(password)
+    if (passwordError) {
+      setError(passwordError)
       return
     }
     if (password !== confirmPassword) {
@@ -89,7 +74,13 @@ export default function SignUp() {
     setLoading(true)
     try {
       const fullPhone = phone.trim() ? `${country.dial}${phone.replace(/\s+/g, '')}` : undefined
-      await signup(email.trim(), password, name.trim() || undefined, fullPhone)
+      const result = await signup(email.trim(), password, name.trim() || undefined, fullPhone)
+      if (result.kind === 'verification') {
+        const params = new URLSearchParams({ pending: '1', email: result.email })
+        if (result.emailSent === false) params.set('emailFailed', '1')
+        navigate(`/confirm-email?${params.toString()}`)
+        return
+      }
       navigate('/dashboard')
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -98,6 +89,8 @@ export default function SignUp() {
       setLoading(false)
     }
   }
+
+  const passwordReady = isStrongPassword(password) && password === confirmPassword
 
   const socialUnavailable = () => {
     setNotice('Social sign-up is not available yet. Continue with email.')
@@ -233,14 +226,14 @@ export default function SignUp() {
                       aria-label="Phone number country"
                       value={country.code}
                       onChange={(e) => {
-                        const next = COUNTRIES.find((item) => item.code === e.target.value)
+                        const next = findPhoneCountry(e.target.value)
                         if (next) setCountry(next)
                       }}
-                      className={clsx(inputClass, 'w-[7.5rem] shrink-0 px-2 sm:w-36')}
+                      className={clsx(inputClass, 'w-[8.5rem] shrink-0 px-2 sm:w-40')}
                     >
-                      {COUNTRIES.map((item) => (
-                        <option key={item.code} value={item.code}>
-                          {item.flag} {item.dial}
+                      {PHONE_COUNTRIES.map((item) => (
+                        <option key={item.code} value={item.code} title={item.name}>
+                          {item.flag} {item.dial} {item.name}
                         </option>
                       ))}
                     </select>
@@ -279,6 +272,7 @@ export default function SignUp() {
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
+                  <PasswordRequirements password={password} />
                 </div>
 
                 <div>
@@ -308,7 +302,7 @@ export default function SignUp() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !passwordReady}
                   className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:scale-[1.02] hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:py-3 sm:text-base"
                 >
                   {loading ? 'Creating account...' : 'Create Account'}

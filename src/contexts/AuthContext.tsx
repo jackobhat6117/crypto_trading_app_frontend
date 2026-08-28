@@ -4,11 +4,15 @@ import { sessionManager } from '../services/sessionManager'
 import { refreshAccessToken } from '../services/sessionRefresh'
 import { User } from '../types'
 
+export type SignUpResponse =
+  | { kind: 'session'; user: User }
+  | { kind: 'verification'; email: string; emailSent?: boolean; message?: string }
+
 interface AuthContextType {
   user: User | null
   loading: boolean
   signin: (email: string, password: string) => Promise<User>
-  signup: (email: string, password: string, name?: string, phone?: string) => Promise<User>
+  signup: (email: string, password: string, name?: string, phone?: string) => Promise<SignUpResponse>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
   isAuthenticated: boolean
@@ -131,14 +135,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return tokens.user
   }
 
-  const signup = async (email: string, password: string, name?: string, phone?: string) => {
+  const signup = async (email: string, password: string, name?: string, phone?: string): Promise<SignUpResponse> => {
     const result = await authService.signup({ email, password, name, phone })
     if (result.tokens) {
       sessionManager.saveSession(result.tokens)
       setUser(result.tokens.user)
-      return result.tokens.user
+      return { kind: 'session', user: result.tokens.user }
     }
-    throw new Error(result.message || 'Please verify your email to continue')
+    return {
+      kind: 'verification',
+      email: result.email,
+      emailSent: result.emailSent,
+      message: result.message,
+    }
   }
 
   const refreshUser = async () => {

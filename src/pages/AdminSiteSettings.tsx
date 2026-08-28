@@ -17,6 +17,7 @@ export default function AdminSiteSettingsPage() {
           ...data,
           metaTitle: data.metaTitle || data.siteName || 'Base Option Trading',
           metaDescription: data.metaDescription || '',
+          metaKeywords: data.metaKeywords || '',
         })
       )
       .catch(() => setError('Failed to load site settings'))
@@ -166,6 +167,17 @@ export default function AdminSiteSettingsPage() {
           <p className="mb-5 text-[11px] text-slate-500">
             Appears in search engine results (recommended: 150-160 characters)
             {settings.metaDescription ? ` · ${settings.metaDescription.length}` : ''}
+          </p>
+
+          <label className="mb-1 block text-sm text-slate-300">Meta Keywords</label>
+          <input
+            value={settings.metaKeywords || ''}
+            onChange={(e) => setSettings({ ...settings, metaKeywords: e.target.value })}
+            placeholder="crypto trading, forex, bitcoin, options"
+            className="mb-1 w-full rounded-lg border border-white/10 bg-[#0d1117] px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500/60"
+          />
+          <p className="mb-5 text-[11px] text-slate-500">
+            Comma-separated terms that help search engines understand the page
           </p>
 
           <div className="mb-5 grid gap-3 sm:grid-cols-2">

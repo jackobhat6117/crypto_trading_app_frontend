@@ -54,8 +54,12 @@ export default function SignIn() {
         navigate('/dashboard')
       }
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(message || 'Invalid email or password')
+      const response = (err as { response?: { data?: { message?: string; code?: string } } })?.response?.data
+      if (response?.code === 'EMAIL_NOT_VERIFIED') {
+        navigate(`/confirm-email?${new URLSearchParams({ pending: '1', email: email.trim() }).toString()}`)
+        return
+      }
+      setError(response?.message || 'Invalid email or password')
     } finally {
       setLoading(false)
     }

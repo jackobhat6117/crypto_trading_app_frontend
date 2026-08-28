@@ -157,7 +157,7 @@ export const authService = {
     const postSignup = async (path: string) => {
       const response = await api.post(path, data)
       const payload = response.data as Record<string, unknown>
-      if (payload.requiresVerification) {
+      if (payload.requiresVerification === true) {
         return {
           requiresVerification: true as const,
           email: String(payload.email || data.email),

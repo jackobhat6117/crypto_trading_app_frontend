@@ -11,6 +11,7 @@ export interface AdminSiteSettings {
   favicon?: string
   metaTitle?: string
   metaDescription?: string
+  metaKeywords?: string
   supportEmail?: string
   currency?: string
   maintenanceMode?: boolean
@@ -430,6 +431,11 @@ export const adminUserService = {
 
   async resetPassword(id: string, password: string) {
     const response = await api.post(`/api/admin/users/${id}/password`, { password })
+    return response.data
+  },
+
+  async remove(id: string) {
+    const response = await api.delete(`/api/admin/users/${id}`)
     return response.data
   },
 

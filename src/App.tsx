@@ -50,6 +50,7 @@ import AdminChangePassword from './pages/AdminChangePassword'
 import AdminDeposits from './pages/AdminDeposits'
 import AdminSignIn from './pages/AdminSignIn'
 import { AdminRoute } from './components/AdminRoute'
+import SeoHead from './components/SeoHead'
 
 function App() {
   return (
@@ -57,6 +58,7 @@ function App() {
       <SiteSettingsProvider>
       <AuthProvider>
         <Router>
+          <SeoHead />
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/signin" element={<SignIn />} />

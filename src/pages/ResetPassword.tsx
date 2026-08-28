@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { authService } from '../services/authService'
 import AuthLayout from '../components/auth/AuthLayout'
+import PasswordRequirements from '../components/auth/PasswordRequirements'
+import { getPasswordValidationError, isStrongPassword } from '../utils/password'
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams()
@@ -18,8 +20,9 @@ export default function ResetPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (password.length < 8) {
-      setError('Enter new password (min 8 characters)')
+    const passwordError = getPasswordValidationError(password)
+    if (passwordError) {
+      setError(passwordError)
       return
     }
     if (password !== confirmPassword) {
@@ -70,7 +73,7 @@ export default function ResetPassword() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter new password (min 8 characters)"
+              placeholder="Enter new password"
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-12 dark:border-gray-700 dark:bg-gray-900"
             />
             <button
@@ -81,6 +84,7 @@ export default function ResetPassword() {
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
+          <PasswordRequirements password={password} />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -97,7 +101,7 @@ export default function ResetPassword() {
         </div>
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !isStrongPassword(password) || password !== confirmPassword}
           className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
         >
           {loading ? 'Submitting...' : 'Reset Password'}

@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+Allow: /signin
+Allow: /signup
+Allow: /privacy-policy
+Allow: /help-support
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /profile
+Disallow: /asset
+Disallow: /history
+Disallow: /trade
+Disallow: /customer-service
+Disallow: /kyc
+Disallow: /confirm-email
+Disallow: /reset-password
+Disallow: /forgot-password
+
+Sitemap: https://crypto-trading-app-frontend.vercel.app/sitemap.xml

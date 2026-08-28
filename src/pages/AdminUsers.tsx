@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { adminService, AdminUser } from '../services/adminService'
 import { adminUserService } from '../services/adminPanelService'
 import { sessionManager } from '../services/sessionManager'
+import ConfirmModal from '../components/admin/ConfirmModal'
+import { isProtectedOwnerEmail } from '../utils/protectedOwner'
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0)
@@ -43,6 +45,8 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState('')
+  const [deleting, setDeleting] = useState<AdminUser | null>(null)
+  const [deleteError, setDeleteError] = useState('')
 
   const fetchUsers = useCallback(async (page = 1) => {
     setLoading(true)
@@ -68,6 +72,20 @@ export default function AdminUsers() {
 
   const goEdit = (user: AdminUser, hash = '') => {
     navigate(`/admin/users/${user.id}${hash}`)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleting || isProtectedOwnerEmail(deleting.email)) return
+    setDeleteError('')
+    try {
+      await adminUserService.remove(deleting.id)
+      setDeleting(null)
+      await fetchUsers(pagination.page)
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setDeleteError(message || 'Failed to delete user')
+      throw err
+    }
   }
 
   return (
@@ -168,6 +186,18 @@ export default function AdminUsers() {
                           >
                             Login As
                           </button>
+                          {!isProtectedOwnerEmail(user.email) && (
+                            <button
+                              onClick={() => {
+                                setDeleteError('')
+                                setDeleting(user)
+                              }}
+                              className="rounded-md bg-red-600/90 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-red-600"
+                              aria-label={`Delete ${user.email}`}
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -202,6 +232,25 @@ export default function AdminUsers() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(deleting)}
+        onClose={() => {
+          setDeleting(null)
+          setDeleteError('')
+        }}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        message={
+          deleting
+            ? `This will permanently delete ${deleting.email} and all related data (trades, wallets, transactions). This cannot be undone.${
+                deleteError ? `\n\n${deleteError}` : ''
+              }`
+            : ''
+        }
+        confirmText="Delete User"
+        requireTyped={deleting?.email}
+      />
     </div>
   )
 }

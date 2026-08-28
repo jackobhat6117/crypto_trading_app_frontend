@@ -105,6 +105,7 @@ export interface SiteSettings {
     favicon?: string
     metaTitle?: string
     metaDescription?: string
+    metaKeywords?: string
     currency: string
   }
 }
