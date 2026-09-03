@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Copy, Plus, Search, Upload, X } from 'lucide-react'
-import { coinService } from '../services/marketDataService'
 import { depositService } from '../services/financeService'
+import { walletService } from '../services/walletService'
 import { Coin } from '../types'
 import { createPortal } from 'react-dom'
 import { resolveMediaUrl } from '../utils/mediaUrl'
 import { formatBalance } from '../utils/format'
-import { mergeCoinCatalog, withDepositAddress } from '../data/placeholderCoins'
 
 interface AddFundsModalProps {
   open: boolean
@@ -18,10 +17,8 @@ interface AddFundsModalProps {
 
 type Stage = 'select' | 'address'
 
-const TOP_SYMBOLS = ['BTC', 'ETH', 'USDT']
-
 export default function AddFundsModal({ open, onClose, selectedCoin, onSuccess }: AddFundsModalProps) {
-  const [coins, setCoins] = useState<Coin[]>(() => mergeCoinCatalog([]))
+  const [coins, setCoins] = useState<Coin[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
   const [stage, setStage] = useState<Stage>('select')
@@ -37,7 +34,7 @@ export default function AddFundsModal({ open, onClose, selectedCoin, onSuccess }
   useEffect(() => {
     if (!open) return
     setStage(selectedCoin ? 'address' : 'select')
-    setCoin(selectedCoin ? withDepositAddress(selectedCoin) : null)
+    setCoin(selectedCoin ?? null)
     setAmount('')
     setScreenshot(null)
     setPreview(null)
@@ -45,20 +42,18 @@ export default function AddFundsModal({ open, onClose, selectedCoin, onSuccess }
     setMessage('')
     setQuery('')
     setLoading(true)
-    coinService
-      .getCoins()
-      .then((list) => setCoins(mergeCoinCatalog(list)))
-      .catch(() => setCoins(mergeCoinCatalog([])))
+    walletService
+      .getDepositCoins()
+      .then((list) => {
+        setCoins(list)
+        if (selectedCoin) {
+          const match = list.find((item) => item.symbol.toUpperCase() === selectedCoin.symbol.toUpperCase())
+          if (match) setCoin(match)
+        }
+      })
+      .catch(() => setCoins([]))
       .finally(() => setLoading(false))
   }, [open, selectedCoin])
-
-  const topCoins = useMemo(
-    () =>
-      TOP_SYMBOLS.map((symbol) => coins.find((item) => item.symbol.toUpperCase() === symbol)).filter(
-        (item): item is Coin => Boolean(item)
-      ),
-    [coins]
-  )
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -70,7 +65,11 @@ export default function AddFundsModal({ open, onClose, selectedCoin, onSuccess }
   }, [coins, query])
 
   const chooseCoin = (item: Coin) => {
-    setCoin(withDepositAddress(item))
+    if (!item.address?.trim()) {
+      setError(`Deposits for ${item.symbol} are not available yet. Admin has not configured a deposit address.`)
+      return
+    }
+    setCoin(item)
     setStage('address')
     setError('')
   }
@@ -84,6 +83,10 @@ export default function AddFundsModal({ open, onClose, selectedCoin, onSuccess }
 
   const submit = async () => {
     if (!coin) return
+    if (!coin?.address?.trim()) {
+      setError(`Deposits for ${coin.symbol} are not available yet. Admin has not configured a deposit address.`)
+      return
+    }
     const value = Number(amount)
     const min = coin.minDeposit ?? 1
     if (!value || value < min) {
@@ -94,7 +97,6 @@ export default function AddFundsModal({ open, onClose, selectedCoin, onSuccess }
     setSubmitting(true)
     try {
       await depositService.submitRequest({
-        coinId: coin._id,
         coinSymbol: coin.symbol,
         amount: value,
         screenshot: screenshot ?? undefined,
@@ -148,48 +150,23 @@ export default function AddFundsModal({ open, onClose, selectedCoin, onSuccess }
                 />
               </div>
 
-              {topCoins.length > 0 && (
-                <div className="mb-4 flex-shrink-0">
-                  <h4 className="mb-2 text-xs font-semibold text-gray-500 sm:text-sm">Top Coins</h4>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                    {topCoins.map((item) => (
-                      <button
-                        key={item._id}
-                        onClick={() => chooseCoin(item)}
-                        className="rounded-lg border border-gray-200 bg-white p-2 text-left hover:border-green-500 hover:bg-green-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-green-900/20 sm:p-3"
-                      >
-                        <div className="flex flex-col items-center gap-1 sm:gap-2">
-                          {item.image ? (
-                            <img src={resolveMediaUrl(item.image)} alt="" className="h-8 w-8 rounded-full sm:h-10 sm:w-10" />
-                          ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-bold dark:bg-gray-700 sm:h-10 sm:w-10">
-                              {item.symbol.charAt(0)}
-                            </div>
-                          )}
-                          <div className="w-full text-center">
-                            <div className="truncate text-xs font-semibold sm:text-sm">{item.symbol}</div>
-                            <div className="text-xs text-gray-500">${formatBalance(item.price)}</div>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="mb-2 flex-shrink-0">
+                <h4 className="text-xs font-semibold text-gray-500 sm:text-sm">
+                  Deposit with BTC, ETH or USDT
+                </h4>
+              </div>
 
               <div className="flex min-h-0 flex-1 flex-col">
-                <h4 className="mb-2 flex-shrink-0 text-xs font-semibold text-gray-500 sm:text-sm">
-                  All Coins {filtered.length > 0 && `(${filtered.length})`}
-                </h4>
                 <div className="flex-1 space-y-1.5 overflow-y-auto pr-1">
-                  {filtered.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-gray-500">No coins found</p>
+                  {!loading && filtered.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-gray-500">No deposit methods available</p>
                   ) : (
                     filtered.map((item) => (
                       <button
                         key={item._id}
                         onClick={() => chooseCoin(item)}
-                        className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white p-2.5 hover:border-green-500 hover:bg-green-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-green-900/20 sm:p-3"
+                        disabled={!item.address?.trim()}
+                        className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white p-2.5 hover:border-green-500 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-green-900/20 sm:p-3"
                       >
                         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                           {item.image ? (
@@ -201,7 +178,11 @@ export default function AddFundsModal({ open, onClose, selectedCoin, onSuccess }
                           )}
                           <div className="min-w-0 text-left">
                             <div className="truncate text-xs font-semibold sm:text-sm">{item.symbol}</div>
-                            <div className="truncate text-xs text-gray-500">{item.name}</div>
+                            <div className="truncate text-xs text-gray-500">
+                              {item.address?.trim()
+                                ? item.network || item.name
+                                : 'Not configured by admin'}
+                            </div>
                           </div>
                         </div>
                         <div className="text-xs font-semibold sm:text-sm">${formatBalance(item.price)}</div>

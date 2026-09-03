@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowUpRight, Eye, EyeOff, Search, X } from 'lucide-react'
-import { coinService } from '../services/marketDataService'
 import { withdrawalService, WithdrawalSettings } from '../services/financeService'
+import { walletService } from '../services/walletService'
 import { Coin } from '../types'
 import { resolveMediaUrl } from '../utils/mediaUrl'
 import { formatBalance } from '../utils/format'
-import { mergeCoinCatalog } from '../data/placeholderCoins'
 import { useAuth } from '../contexts/AuthContext'
 
 interface WithdrawFundsModalProps {
@@ -18,8 +17,6 @@ interface WithdrawFundsModalProps {
 
 type Stage = 'select' | 'form'
 
-const TOP_SYMBOLS = ['BTC', 'ETH', 'USDT']
-
 export default function WithdrawFundsModal({
   open,
   onClose,
@@ -27,7 +24,7 @@ export default function WithdrawFundsModal({
   onSuccess,
 }: WithdrawFundsModalProps) {
   const { user, refreshUser } = useAuth()
-  const [coins, setCoins] = useState<Coin[]>(() => mergeCoinCatalog([]))
+  const [coins, setCoins] = useState<Coin[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
   const [stage, setStage] = useState<Stage>('select')
@@ -56,23 +53,20 @@ export default function WithdrawFundsModal({
     setQuery('')
     setLoading(true)
     Promise.all([
-      coinService.getCoins().catch(() => [] as Coin[]),
+      walletService.getWithdrawalCoins(),
       withdrawalService.getSettings().catch(() => null),
     ])
       .then(([list, nextSettings]) => {
-        setCoins(mergeCoinCatalog(list))
+        setCoins(list)
+        if (selectedCoin) {
+          const match = list.find((item) => item.symbol.toUpperCase() === selectedCoin.symbol.toUpperCase())
+          if (match) setCoin(match)
+        }
         setSettings(nextSettings)
       })
+      .catch(() => setCoins([]))
       .finally(() => setLoading(false))
   }, [open, selectedCoin])
-
-  const topCoins = useMemo(
-    () =>
-      TOP_SYMBOLS.map((symbol) => coins.find((item) => item.symbol.toUpperCase() === symbol)).filter(
-        (item): item is Coin => Boolean(item)
-      ),
-    [coins]
-  )
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -125,7 +119,6 @@ export default function WithdrawFundsModal({
     setSubmitting(true)
     try {
       await withdrawalService.create({
-        coinId: coin._id,
         coinSymbol: coin.symbol,
         amount: value,
         address: address.trim(),
@@ -182,42 +175,16 @@ export default function WithdrawFundsModal({
                 />
               </div>
 
-              {topCoins.length > 0 && (
-                <div className="mb-4 flex-shrink-0">
-                  <h4 className="mb-2 text-xs font-semibold text-gray-500 sm:text-sm">Top Coins</h4>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                    {topCoins.map((item) => (
-                      <button
-                        key={item._id}
-                        onClick={() => chooseCoin(item)}
-                        className="rounded-lg border border-gray-200 bg-white p-2 text-left hover:border-indigo-500 hover:bg-indigo-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-indigo-900/20 sm:p-3"
-                      >
-                        <div className="flex flex-col items-center gap-1 sm:gap-2">
-                          {item.image ? (
-                            <img src={resolveMediaUrl(item.image)} alt="" className="h-8 w-8 rounded-full sm:h-10 sm:w-10" />
-                          ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-bold dark:bg-gray-700 sm:h-10 sm:w-10">
-                              {item.symbol.charAt(0)}
-                            </div>
-                          )}
-                          <div className="w-full text-center">
-                            <div className="truncate text-xs font-semibold sm:text-sm">{item.symbol}</div>
-                            <div className="text-xs text-gray-500">${formatBalance(item.price)}</div>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="mb-2 flex-shrink-0">
+                <h4 className="text-xs font-semibold text-gray-500 sm:text-sm">
+                  Withdraw as BTC, ETH or USDT
+                </h4>
+              </div>
 
               <div className="flex min-h-0 flex-1 flex-col">
-                <h4 className="mb-2 flex-shrink-0 text-xs font-semibold text-gray-500 sm:text-sm">
-                  All Coins {filtered.length > 0 && `(${filtered.length})`}
-                </h4>
                 <div className="flex-1 space-y-1.5 overflow-y-auto pr-1">
-                  {filtered.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-gray-500">No coins found</p>
+                  {!loading && filtered.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-gray-500">No withdrawal methods available</p>
                   ) : (
                     filtered.map((item) => (
                       <button
@@ -235,7 +202,7 @@ export default function WithdrawFundsModal({
                           )}
                           <div className="min-w-0 text-left">
                             <div className="truncate text-xs font-semibold sm:text-sm">{item.symbol}</div>
-                            <div className="truncate text-xs text-gray-500">{item.name}</div>
+                            <div className="truncate text-xs text-gray-500">{item.network || item.name}</div>
                           </div>
                         </div>
                         <div className="text-xs font-semibold sm:text-sm">${formatBalance(item.price)}</div>
