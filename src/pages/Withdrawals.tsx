@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, ChevronLeft, Clock, Minus, X } from 'lucide-react'
 import { FinanceStatus, WithdrawalRecord, withdrawalService } from '../services/financeService'
-import { SAMPLE_WITHDRAWALS } from '../data/placeholderWithdrawals'
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom'
 
@@ -104,8 +103,8 @@ export default function WithdrawalsPage() {
   useEffect(() => {
     withdrawalService
       .getHistory()
-      .then((list) => setWithdrawals(list.length > 0 ? list : SAMPLE_WITHDRAWALS))
-      .catch(() => setWithdrawals(SAMPLE_WITHDRAWALS))
+      .then((list) => setWithdrawals(Array.isArray(list) ? list : []))
+      .catch(() => setWithdrawals([]))
       .finally(() => setLoading(false))
   }, [])
 

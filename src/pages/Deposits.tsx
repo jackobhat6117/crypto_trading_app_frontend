@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, ChevronLeft, Clock, Plus, X } from 'lucide-react'
 import { DepositRecord, depositService, FinanceStatus } from '../services/financeService'
-import { SAMPLE_DEPOSITS } from '../data/placeholderDeposits'
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom'
 
@@ -95,8 +94,8 @@ export default function DepositsPage() {
   useEffect(() => {
     depositService
       .getHistory()
-      .then((list) => setDeposits(list.length > 0 ? list : SAMPLE_DEPOSITS))
-      .catch(() => setDeposits(SAMPLE_DEPOSITS))
+      .then((list) => setDeposits(Array.isArray(list) ? list : []))
+      .catch(() => setDeposits([]))
       .finally(() => setLoading(false))
   }, [])
 

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeftRight, Calendar, ChevronLeft, Clock, X } from 'lucide-react'
 import { FinanceStatus, TransferRecord, transferService } from '../services/financeService'
-import { SAMPLE_TRANSFERS } from '../data/placeholderTransfers'
 
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom'
 
@@ -100,8 +99,8 @@ export default function TransfersPage() {
   useEffect(() => {
     transferService
       .getHistory()
-      .then((list) => setTransfers(list.length > 0 ? list : SAMPLE_TRANSFERS))
-      .catch(() => setTransfers(SAMPLE_TRANSFERS))
+      .then((list) => setTransfers(Array.isArray(list) ? list : []))
+      .catch(() => setTransfers([]))
       .finally(() => setLoading(false))
   }, [])
 
