@@ -34,3 +34,13 @@ export const DEFAULT_PHONE_COUNTRY =
 export function findPhoneCountry(code: string) {
   return PHONE_COUNTRIES.find((country) => country.code === code)
 }
+
+export function sanitizeNationalPhone(value: string) {
+  return value.replace(/[^\d\s-]/g, '')
+}
+
+export function buildFullPhoneNumber(country: PhoneCountry, nationalNumber: string) {
+  const digits = nationalNumber.replace(/\D/g, '')
+  if (!digits) return undefined
+  return `${country.dial}${digits}`
+}

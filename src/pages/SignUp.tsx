@@ -4,8 +4,17 @@ import { Eye, EyeOff, Moon, Sun } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import BrandLogo from '../components/BrandLogo'
+import PhoneInput from '../components/auth/PhoneInput'
+import FormField, {
+  FormAlert,
+  SignUpFieldErrors,
+  fieldClassName,
+  firstSignUpFieldId,
+  validateSignUpStep1,
+  validateSignUpStep2,
+} from '../components/auth/formValidation'
 import clsx from 'clsx'
-import { DEFAULT_PHONE_COUNTRY, findPhoneCountry, PHONE_COUNTRIES } from '../utils/countries'
+import { DEFAULT_PHONE_COUNTRY, buildFullPhoneNumber } from '../utils/countries'
 
 const inputClass =
   'w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-500 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 sm:px-4 sm:py-3 sm:text-base'
@@ -29,6 +38,15 @@ function AppleIcon() {
   )
 }
 
+function focusField(fieldId: string | null) {
+  if (!fieldId) return
+  window.requestAnimationFrame(() => {
+    const element = document.getElementById(fieldId)
+    element?.focus()
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
 export default function SignUp() {
   const { signup } = useAuth()
   const { theme, toggleTheme } = useTheme()
@@ -43,34 +61,51 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<SignUpFieldErrors>({})
+  const [formError, setFormError] = useState('')
   const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const clearFieldError = (field: keyof SignUpFieldErrors) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+
   const handleEmailContinue = (event: React.FormEvent) => {
     event.preventDefault()
-    setError('')
-    if (!email.trim()) {
-      setError('Please enter your email')
+    setFormError('')
+
+    const errors = validateSignUpStep1(email)
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      focusField(firstSignUpFieldId(errors, 1))
       return
     }
+
+    setFieldErrors({})
     setStep(2)
   }
 
   const handleCreateAccount = async (event: React.FormEvent) => {
     event.preventDefault()
-    setError('')
-    if (!password.trim()) {
-      setError('Please enter a password')
+    setFormError('')
+
+    const errors = validateSignUpStep2(name, phone, password, confirmPassword)
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      focusField(firstSignUpFieldId(errors, 2))
       return
     }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
+
+    setFieldErrors({})
     setLoading(true)
+
     try {
-      const fullPhone = phone.trim() ? `${country.dial}${phone.replace(/\s+/g, '')}` : undefined
+      const fullPhone = buildFullPhoneNumber(country, phone)
       const result = await signup(email.trim(), password, name.trim() || undefined, fullPhone)
       if (result.kind === 'verification') {
         const params = new URLSearchParams({ pending: '1', email: result.email })
@@ -81,7 +116,7 @@ export default function SignUp() {
       navigate('/dashboard')
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(message || 'Registration failed')
+      setFormError(message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -113,7 +148,7 @@ export default function SignUp() {
           <BrandLogo size="lg" />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-2xl shadow-indigo-500/10 dark:border-gray-700 dark:bg-gray-800 sm:rounded-2xl sm:p-8">
+        <div className="overflow-visible rounded-xl border border-gray-200 bg-white p-5 shadow-2xl shadow-indigo-500/10 dark:border-gray-700 dark:bg-gray-800 sm:rounded-2xl sm:p-8">
           <h1 className="mb-1 text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:mb-2 sm:text-3xl">
             Create Account
           </h1>
@@ -121,37 +156,30 @@ export default function SignUp() {
             Sign up to start trading today
           </p>
 
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-              {error}
-            </div>
-          )}
-          {notice && (
-            <div className="mb-4 rounded-lg bg-indigo-50 px-4 py-3 text-sm text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300">
-              {notice}
-            </div>
-          )}
+          {formError && <FormAlert message={formError} tone="error" />}
+          {notice && <FormAlert message={notice} tone="info" />}
 
           {step === 1 ? (
             <>
-              <form onSubmit={handleEmailContinue} className="mb-4 space-y-4 sm:mb-6">
-                <div>
-                  <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:mb-2 sm:text-sm">
-                    Email
-                  </label>
+              <form onSubmit={handleEmailContinue} noValidate className="mb-4 space-y-4 sm:mb-6">
+                <FormField id="email" label="Email" error={fieldErrors.email} required>
                   <input
                     id="email"
                     type="email"
-                    required
+                    autoComplete="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(event) => {
+                      setEmail(event.target.value)
+                      clearFieldError('email')
+                    }}
                     placeholder="Enter your email"
-                    className={inputClass}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    className={fieldClassName(inputClass, Boolean(fieldErrors.email))}
                   />
-                </div>
+                </FormField>
+
                 <button
                   type="submit"
-                  disabled={!email.trim()}
                   className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:scale-[1.02] hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:py-3 sm:text-base"
                 >
                   Continue
@@ -188,7 +216,8 @@ export default function SignUp() {
                   type="button"
                   onClick={() => {
                     setStep(1)
-                    setError('')
+                    setFormError('')
+                    setFieldErrors({})
                   }}
                   className="mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 sm:text-sm"
                 >
@@ -196,67 +225,54 @@ export default function SignUp() {
                 </button>
               </div>
 
-              <form onSubmit={handleCreateAccount} className="space-y-3 sm:space-y-4">
-                <div>
-                  <label htmlFor="fullName" className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:mb-2 sm:text-sm">
-                    Full Name
-                  </label>
+              <form onSubmit={handleCreateAccount} noValidate className="space-y-3 sm:space-y-4">
+                <FormField id="fullName" label="Full Name" error={fieldErrors.name} required>
                   <input
                     id="fullName"
                     type="text"
-                    required
+                    autoComplete="name"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(event) => {
+                      setName(event.target.value)
+                      clearFieldError('name')
+                    }}
                     placeholder="Enter your full name"
-                    className={inputClass}
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    className={fieldClassName(inputClass, Boolean(fieldErrors.name))}
                   />
-                </div>
+                </FormField>
 
-                <div>
-                  <label htmlFor="phone" className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:mb-2 sm:text-sm">
-                    Phone Number
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      aria-label="Phone number country"
-                      value={country.code}
-                      onChange={(e) => {
-                        const next = findPhoneCountry(e.target.value)
-                        if (next) setCountry(next)
-                      }}
-                      className={clsx(inputClass, 'w-[8.5rem] shrink-0 px-2 sm:w-40')}
-                    >
-                      {PHONE_COUNTRIES.map((item) => (
-                        <option key={item.code} value={item.code} title={item.name}>
-                          {item.flag} {item.dial} {item.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      id="phone"
-                      type="tel"
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder={country.dial}
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
+                <PhoneInput
+                  id="phone"
+                  country={country}
+                  phone={phone}
+                  onCountryChange={setCountry}
+                  onPhoneChange={(value) => {
+                    setPhone(value)
+                    clearFieldError('phone')
+                  }}
+                  required
+                  inputClassName={inputClass}
+                  error={fieldErrors.phone}
+                />
 
-                <div>
-                  <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:mb-2 sm:text-sm">
-                    Password
-                  </label>
+                <FormField id="password" label="Password" error={fieldErrors.password} required>
                   <div className="relative">
                     <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
-                      required
+                      autoComplete="new-password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(event) => {
+                        setPassword(event.target.value)
+                        clearFieldError('password')
+                        if (fieldErrors.confirmPassword && event.target.value === confirmPassword) {
+                          clearFieldError('confirmPassword')
+                        }
+                      }}
                       placeholder="Create a password"
-                      className={clsx(inputClass, 'pr-12')}
+                      aria-invalid={Boolean(fieldErrors.password)}
+                      className={fieldClassName(clsx(inputClass, 'pr-12'), Boolean(fieldErrors.password))}
                     />
                     <button
                       type="button"
@@ -267,21 +283,22 @@ export default function SignUp() {
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
-                </div>
+                </FormField>
 
-                <div>
-                  <label htmlFor="confirmPassword" className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300 sm:mb-2 sm:text-sm">
-                    Confirm Password
-                  </label>
+                <FormField id="confirmPassword" label="Confirm Password" error={fieldErrors.confirmPassword} required>
                   <div className="relative">
                     <input
                       id="confirmPassword"
                       type={showConfirm ? 'text' : 'password'}
-                      required
+                      autoComplete="new-password"
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onChange={(event) => {
+                        setConfirmPassword(event.target.value)
+                        clearFieldError('confirmPassword')
+                      }}
                       placeholder="Re-enter your password"
-                      className={clsx(inputClass, 'pr-12')}
+                      aria-invalid={Boolean(fieldErrors.confirmPassword)}
+                      className={fieldClassName(clsx(inputClass, 'pr-12'), Boolean(fieldErrors.confirmPassword))}
                     />
                     <button
                       type="button"
@@ -292,11 +309,11 @@ export default function SignUp() {
                       {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
-                </div>
+                </FormField>
 
                 <button
                   type="submit"
-                  disabled={loading || !password.trim() || password !== confirmPassword}
+                  disabled={loading}
                   className="w-full rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:scale-[1.02] hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:py-3 sm:text-base"
                 >
                   {loading ? 'Creating account...' : 'Create Account'}
