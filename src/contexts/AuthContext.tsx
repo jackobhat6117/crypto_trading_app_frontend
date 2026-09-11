@@ -13,6 +13,7 @@ interface AuthContextType {
   loading: boolean
   signin: (email: string, password: string) => Promise<User>
   signup: (email: string, password: string, name?: string, phone?: string) => Promise<SignUpResponse>
+  verifyEmail: (email: string, code: string) => Promise<boolean>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
   isAuthenticated: boolean
@@ -150,6 +151,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
+  // Returns true when verification signed the user in (a session was issued),
+  // false when the account was already verified and needs a normal sign-in.
+  const verifyEmail = async (email: string, code: string): Promise<boolean> => {
+    const { tokens } = await authService.verifyEmail(email, code)
+    if (!tokens) return false
+    sessionManager.saveSession(tokens)
+    setUser(tokens.user)
+    return true
+  }
+
   const refreshUser = async () => {
     const profile = await authService.getMe()
     sessionManager.updateUser(profile)
@@ -174,6 +185,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         signin,
         signup,
+        verifyEmail,
         logout,
         refreshUser,
         isAuthenticated: Boolean(user && sessionManager.hasAccessToken()),

@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Mail } from 'lucide-react'
 import { authService } from '../services/authService'
+import { useAuth } from '../contexts/AuthContext'
 import AuthLayout from '../components/auth/AuthLayout'
 
 const CODE_LENGTH = 6
@@ -9,6 +10,7 @@ const CODE_LENGTH = 6
 export default function ConfirmEmail() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { verifyEmail } = useAuth()
   const email = searchParams.get('email') ?? ''
   const emailFailed = searchParams.get('emailFailed') === '1'
 
@@ -32,10 +34,12 @@ export default function ConfirmEmail() {
     setError('')
     setVerifying(true)
     try {
-      const data = await authService.verifyEmail(email, value)
+      const signedIn = await verifyEmail(email, value)
       setSuccess(true)
-      setMessage(data?.message ?? '')
-      setTimeout(() => navigate('/signin'), 1500)
+      // Newly verified users are already signed in — drop them on the dashboard.
+      // Already-verified accounts fall back to the sign-in page.
+      setMessage(signedIn ? 'Email verified. Taking you to your dashboard…' : '')
+      setTimeout(() => navigate(signedIn ? '/dashboard' : '/signin', { replace: true }), 1200)
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setError(detail || 'That code is invalid or has expired. Request a new one below.')

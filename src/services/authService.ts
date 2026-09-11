@@ -216,9 +216,15 @@ export const authService = {
     return response.data
   },
 
-  async verifyEmail(email: string, code: string): Promise<{ message?: string }> {
+  async verifyEmail(email: string, code: string): Promise<{ tokens?: AuthTokens; message?: string }> {
     const response = await api.post('/api/auth/verify-email', { email, code })
-    return response.data
+    const payload = response.data as Record<string, unknown>
+    const message = typeof payload.message === 'string' ? payload.message : undefined
+    // Newly verified accounts come back with a session; already-verified ones don't.
+    if (payload.token || payload.accessToken) {
+      return { tokens: unwrapAuth(payload), message }
+    }
+    return { message }
   },
 
   async resendVerification(email?: string): Promise<{ message?: string }> {
