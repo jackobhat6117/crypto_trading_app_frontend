@@ -216,8 +216,8 @@ export const authService = {
     return response.data
   },
 
-  async verifyEmail(token: string): Promise<{ message?: string }> {
-    const response = await api.post('/api/auth/verify-email', { token })
+  async verifyEmail(email: string, code: string): Promise<{ message?: string }> {
+    const response = await api.post('/api/auth/verify-email', { email, code })
     return response.data
   },
 
