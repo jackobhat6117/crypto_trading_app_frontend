@@ -142,27 +142,36 @@ async function fetchPublicMarkets(): Promise<Coin[]> {
   }
 }
 
+const COIN_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000
+let coinCatalogCache: { at: number; coins: Coin[] } | null = null
+
 async function fetchCoinCatalog(): Promise<Coin[]> {
+  if (coinCatalogCache && Date.now() - coinCatalogCache.at < COIN_CATALOG_CACHE_TTL_MS) {
+    return coinCatalogCache.coins
+  }
   const response = await api.get('/api/coins')
   const list = extractMarketList(response.data).length
     ? extractMarketList(response.data)
     : (response.data?.coins || response.data?.data || [])
   const rows = Array.isArray(list) ? list : []
-  return rows
+  const coins = rows
     .map((item: Record<string, unknown>, index: number) => toCoin(item, index))
     .filter((item): item is Coin => Boolean(item))
+  if (coins.length > 0) {
+    coinCatalogCache = { at: Date.now(), coins }
+  }
+  return coins
 }
 
 export const coinService = {
   async getCoins(): Promise<Coin[]> {
     try {
-      const [catalogResult, marketResult] = await Promise.allSettled([
+      const [catalogResult, quotesResult] = await Promise.allSettled([
         fetchCoinCatalog(),
-        fetchHostedMarket(),
+        getBinanceQuotes(),
       ])
       const catalog = catalogResult.status === 'fulfilled' ? catalogResult.value : []
-      const hosted = marketResult.status === 'fulfilled' ? marketResult.value : []
-      const quotes = await getBinanceQuotes()
+      const quotes = quotesResult.status === 'fulfilled' ? quotesResult.value : new Map()
       const overlay = (coins: Coin[]) =>
         coins.map((coin) => {
           const live = quotes.get(`${coin.symbol}USDT`) || quotes.get(coin.symbol)
@@ -177,6 +186,7 @@ export const coinService = {
         })
 
       if (catalog.length > 0) return overlay(mergeCoinCatalog(catalog))
+      const hosted = await fetchHostedMarket()
       if (hosted.length > 0) return overlay(hosted)
     } catch {
       // Fall through to public feed / static catalog.
@@ -265,18 +275,25 @@ async function fetchLiveMetalQuotes(): Promise<Map<string, Partial<Metal>>> {
   return quotes
 }
 
+const METALS_API_TTL_MS = 15_000
+let metalsApiCache: { at: number; metals: Metal[] } | null = null
+
 export const metalService = {
   async getMetals(): Promise<Metal[]> {
     let incoming: Metal[] = []
-    try {
-      const response = await api.get('/api/metals', {
-        params: { _t: Date.now(), _r: Math.random() },
-        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
-      })
-      const list = response.data.metals || response.data.data || []
-      if (Array.isArray(list) && list.length > 0) incoming = list
-    } catch {
-      // Fall through to live quotes / catalog.
+    if (metalsApiCache && Date.now() - metalsApiCache.at < METALS_API_TTL_MS) {
+      incoming = metalsApiCache.metals
+    } else {
+      try {
+        const response = await api.get('/api/metals')
+        const list = response.data.metals || response.data.data || []
+        if (Array.isArray(list) && list.length > 0) {
+          incoming = list
+          metalsApiCache = { at: Date.now(), metals: list }
+        }
+      } catch {
+        // Fall through to live quotes / catalog.
+      }
     }
 
     let catalog = mergeMetalCatalog(incoming)

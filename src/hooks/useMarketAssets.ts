@@ -70,7 +70,7 @@ export function useMarketAssets(type: AssetType) {
     }
 
     load(false)
-    const interval = setInterval(() => load(true), type === 'metals' ? 1000 : 15000)
+    const interval = setInterval(() => load(true), type === 'metals' ? 10000 : 30000)
     return () => {
       active = false
       clearInterval(interval)

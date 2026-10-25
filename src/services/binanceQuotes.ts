@@ -7,8 +7,9 @@ export interface LiveQuote {
   low24h?: number
 }
 
-const TTL_MS = 15_000
+const TTL_MS = 30_000
 let cache: { at: number; bySymbol: Map<string, LiveQuote> } | null = null
+let inflight: Promise<Map<string, LiveQuote>> | null = null
 
 function asQuote(row: Record<string, unknown>): LiveQuote | null {
   const price = Number(row.lastPrice ?? row.price ?? row.c ?? 0)
@@ -29,31 +30,45 @@ function extractRows(payload: unknown): Record<string, unknown>[] {
   return []
 }
 
-/** One Binance 24h ticker snapshot, reused by crypto, gold, and forex. */
+/** One Binance 24h ticker snapshot, reused by crypto, gold, and forex.
+ *  Fetches directly from Binance in the browser first to save backend bandwidth,
+ *  falling back to the backend proxy only if Binance is unreachable.
+ */
 export async function getBinanceQuotes(): Promise<Map<string, LiveQuote>> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.bySymbol
+  if (inflight) return inflight
 
-  let rows: Record<string, unknown>[] = []
-  try {
-    const response = await api.get('/api/market/tickers/24hr')
-    rows = extractRows(response.data)
-  } catch {
+  inflight = (async () => {
+    let rows: Record<string, unknown>[] = []
     try {
       const response = await fetch('https://api.binance.com/api/v3/ticker/24hr')
       if (response.ok) rows = extractRows(await response.json())
     } catch {
       rows = []
     }
-  }
 
-  const bySymbol = new Map<string, LiveQuote>()
-  for (const row of rows) {
-    const symbol = String(row.symbol || row.s || '').toUpperCase()
-    const quote = asQuote(row)
-    if (!symbol || !quote) continue
-    bySymbol.set(symbol, quote)
-  }
+    if (rows.length === 0) {
+      try {
+        const response = await api.get('/api/market/tickers/24hr')
+        rows = extractRows(response.data)
+      } catch {
+        rows = []
+      }
+    }
 
-  if (bySymbol.size > 0) cache = { at: Date.now(), bySymbol }
-  return bySymbol.size > 0 ? bySymbol : cache?.bySymbol || bySymbol
+    const bySymbol = new Map<string, LiveQuote>()
+    for (const row of rows) {
+      const symbol = String(row.symbol || row.s || '').toUpperCase()
+      const quote = asQuote(row)
+      if (!symbol || !quote) continue
+      bySymbol.set(symbol, quote)
+    }
+
+    if (bySymbol.size > 0) cache = { at: Date.now(), bySymbol }
+    return bySymbol.size > 0 ? bySymbol : cache?.bySymbol || bySymbol
+  })().finally(() => {
+    inflight = null
+  })
+
+  return inflight
 }

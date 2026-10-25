@@ -104,20 +104,31 @@ export default function TradeDetail() {
 
   useEffect(() => {
     let cancelled = false
+    let hasOpenPositions = false
     const load = async () => {
       try {
         const list = await tradeService.getPositions()
-        if (!cancelled) setPositions(list)
+        if (!cancelled) {
+          setPositions(list)
+          hasOpenPositions = list.length > 0
+        }
       } catch {
         if (!cancelled) setPositions([])
       }
     }
     void load()
-    const poll = window.setInterval(() => void load(), 2000)
+    // Only poll frequently when there is an active open position; otherwise check every 15s
+    const poll = window.setInterval(() => {
+      if (hasOpenPositions) void load()
+    }, 3000)
+    const idlePoll = window.setInterval(() => {
+      if (!hasOpenPositions) void load()
+    }, 15000)
     const clock = window.setInterval(() => setTick(Date.now()), 1000)
     return () => {
       cancelled = true
       window.clearInterval(poll)
+      window.clearInterval(idlePoll)
       window.clearInterval(clock)
     }
   }, [])
