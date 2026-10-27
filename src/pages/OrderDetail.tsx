@@ -106,27 +106,6 @@ export default function OrderDetailPage() {
   const [trade, setTrade] = useState<Trade | null>(seeded || null)
   const [now, setNow] = useState(Date.now())
 
-  useEffect(() => {
-    if (!tradeId) return
-    let cancelled = false
-
-    const load = async () => {
-      try {
-        const next = await tradeService.getTrade(tradeId)
-        if (!cancelled) setTrade(next)
-      } catch {
-        /* keep seeded trade if fetch fails */
-      }
-    }
-
-    void load()
-    const poll = window.setInterval(() => void load(), 1000)
-    return () => {
-      cancelled = true
-      window.clearInterval(poll)
-    }
-  }, [tradeId])
-
   const open = trade?.status === 'open' || trade?.status === 'pending' || trade?.result === 'pending'
   const left = remainingSeconds(trade, now)
   const duration = trade?.timer || 60
@@ -136,28 +115,41 @@ export default function OrderDetailPage() {
   const settling = open && left <= 0
 
   useEffect(() => {
-    if (open) return
-    void refreshUser()
-  }, [open, refreshUser])
-
-  useEffect(() => {
-    if (!settling || !tradeId) return
+    if (!tradeId) return
     let cancelled = false
+    let inFlight = false
+
     const load = async () => {
+      if (inFlight) return
+      inFlight = true
       try {
         const next = await tradeService.getTrade(tradeId)
         if (!cancelled) setTrade(next)
       } catch {
-        /* keep current trade */
+        /* keep seeded trade if fetch fails */
+      } finally {
+        inFlight = false
       }
     }
+
     void load()
-    const poll = window.setInterval(() => void load(), 400)
+    if (!open) {
+      return () => {
+        cancelled = true
+      }
+    }
+
+    const poll = window.setInterval(() => void load(), settling ? 1000 : 2000)
     return () => {
       cancelled = true
       window.clearInterval(poll)
     }
-  }, [settling, tradeId])
+  }, [tradeId, open, settling])
+
+  useEffect(() => {
+    if (open) return
+    void refreshUser()
+  }, [open, refreshUser])
 
   useEffect(() => {
     if (!open) return
